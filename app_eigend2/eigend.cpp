@@ -949,12 +949,6 @@ EigenMainWindow::~EigenMainWindow()
 
 bool EigenMainWindow::do_quit()
 {
-    if(!backend_->prepare_quit())
-    {
-        alert_dialog("Save In Progress","Save In Progress","A save operation is in progress.  Please wait for it to complete before quitting");
-        return false;
-    }
-
 #ifdef JUCE_MAC
     MenuBarModel::setMacMainMenu(nullptr,nullptr);
 #endif
@@ -966,7 +960,6 @@ bool EigenMainWindow::do_quit()
     stage_.quit();
     workbench_.quit();
     setApplicationCommandManagerToWatch(0);
-    backend_->quit();
 
     cancel_timer_slow();
     return true;
@@ -2017,12 +2010,12 @@ void EigenD::systemRequestedQuit()
             return;
         }
 
-        delete w;
+        // Don't delete the window - it triggers pure virtual calls during
+        // destruction of C++/Python bridge objects. Let _exit() clean up.
     }
 
-    juce::MessageManager::getInstance()->runDispatchLoopUntil(2000);
     cleanup();
-    ejuce::Application::quit();
+    _exit(0);
 }
 
 void EigenD::shutdown()

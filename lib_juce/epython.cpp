@@ -50,19 +50,19 @@ bool epython::PythonInterface::py_startup()
 
     Py_Initialize();
 
-    // Verify Python 3.14 is available (required for build compatibility)
+    // Verify Python 3.12 or later is available (required for build compatibility)
     // PY_VERSION_HEX format: 0xMMmmrrLL (Major, minor, micro, release level)
-    if (PY_VERSION_HEX < 0x030E0000) // 3.14.0 = 0x030E0000
+    if (PY_VERSION_HEX < 0x030C0000) // 3.12.0 = 0x030C0000
     {
         const char* version = Py_GetVersion();
         char error_msg[1024];
         snprintf(error_msg, sizeof(error_msg),
-            "Python 3.14 or later is required.\n\n"
+            "Python 3.12 or later is required.\n\n"
             "Found: %s\n\n"
-            "EigenD was built with Python 3.14 and requires this version to run.\n\n"
-            "Please install Python 3.14 from:\n"
+            "EigenD was built with Python 3.12 and requires this version to run.\n\n"
+            "Please install Python 3.12 from:\n"
             "  macOS/Windows: https://www.python.org/downloads/\n"
-            "  Linux: apt install python3.14 (or use deadsnakes PPA)",
+            "  Linux: apt install python3.12",
             version);
         last_error_ = std::string(error_msg);
         Py_Finalize();
@@ -71,45 +71,48 @@ bool epython::PythonInterface::py_startup()
 
     {
       std::string root = pic::release_root_dir();
-      char cmdbuffer[4096];
-      char escbuffer[4096];
+      std::string cmdbuffer;
+      std::string escbuffer;
 
-      char *q = escbuffer;
       const char *p = root.c_str();
-
       while(*p)
       {
-        if(*p=='\\')
-        {
-            *q++ = '\\';
-        }
-
-        *q++ = *p++;
+          if(*p=='\\') escbuffer += "\\\\";
+          else escbuffer += *p;
+          p++;
       }
 
-      *q = 0;
+      cmdbuffer = "class StdoutCatcher:\n";
+      cmdbuffer += "\tdef __init__(self):\n";
+      cmdbuffer += "\t\tself.data = ''\n";
+      cmdbuffer += "\tdef write(self, stuff):\n";
+      cmdbuffer += "\t\tself.data = self.data + stuff\n";
+      cmdbuffer += "import sys,os\n";
+      cmdbuffer += "if '' in sys.path: sys.path.remove('')\n";
+      cmdbuffer += "if os.getcwd() in sys.path: sys.path.remove(os.getcwd())\n";
+      cmdbuffer += "sys.path.insert(0,os.path.join('" + escbuffer + "','modules'))\n";
+      cmdbuffer += "sys.path.insert(0,os.path.join('" + escbuffer + "','bin'))\n";
+      cmdbuffer += "sys.stdout = StdoutCatcher()\n";
+      cmdbuffer += "sys.stderr = sys.stdout\n";
 
-      sprintf(cmdbuffer,
-         "class StdoutCatcher:\n"
-         "\tdef __init__(self):\n"
-         "\t\tself.data = ''\n"
-         "\tdef write(self, stuff):\n"
-         "\t\tself.data = self.data + stuff\n"
-         "import sys,os\n"
-         "if '' in sys.path: sys.path.remove('')\n"
-         "if os.getcwd() in sys.path: sys.path.remove(os.getcwd())\n"
-         "sys.path.insert(0,os.path.join('%s','modules'))\n"
-         "sys.path.insert(0,os.path.join('%s','bin'))\n"
-         "sys.stdout = StdoutCatcher()\n"
-         "sys.stderr = sys.stdout\n"
-            ,escbuffer,escbuffer
-      );
-
-      PyRun_SimpleString(cmdbuffer);
+      PyRun_SimpleString(cmdbuffer.c_str());
     }
 
     thread_ = PyEval_SaveThread();
     return true;
+}
+
+void epython::PythonInterface::lock()
+{
+    if(thread_)
+    {
+        PyEval_RestoreThread((PyThreadState *)thread_);
+    }
+}
+
+void epython::PythonInterface::unlock()
+{
+    thread_ = PyEval_SaveThread();
 }
 
 void epython::PythonInterface::py_shutdown()

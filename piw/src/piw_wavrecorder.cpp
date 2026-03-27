@@ -36,7 +36,7 @@ namespace
 
     struct audiobuf_t : pic::lckobject_t, pic::element_t<0>
     {
-        audiobuf_t() { memset(this,0,sizeof(audiobuf_t)); }
+        audiobuf_t() : left{}, right{}, len(0) {}
         float left[PLG_CLOCK_BUFFER_SIZE];
         float right[PLG_CLOCK_BUFFER_SIZE];
         unsigned len;

@@ -276,6 +276,12 @@ namespace
         dirname(buffer);
     }
 
+    static void get_global_resources(char *buffer)
+    {
+        // Global resources stay at /usr/local/pi across all versions
+        strcpy(buffer, "/usr/local/pi");
+    }
+
 #endif
     static int __is_debug = 0;
 

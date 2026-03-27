@@ -123,6 +123,7 @@ def win32():
 
 darwin=posix
 linux2=posix
+linux=posix
 
 def select():
     if sys.platform in globals():

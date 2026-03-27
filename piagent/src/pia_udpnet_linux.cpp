@@ -27,6 +27,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include <map>
 
@@ -148,7 +149,7 @@ namespace
              ssize_t s = sendto(socket_.fd, (char *)data, len, 0, (struct sockaddr*)&group, sizeof(group));
              if(s != (int)len)
              {
-                pic::msg() << "Can't send multicast data on " << socket_.fd << ':' << (void *)this << ": " << sys_errlist[errno] << pic::log;
+                 pic::msg() << "Can't send multicast data on " << socket_.fd << ':' << (void *)this << ": " << strerror(errno) << pic::log;
              }
 
         }
@@ -226,7 +227,7 @@ namespace
 
             if(setsockopt(socket_.fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&group, sizeof(group)) < 0)
             {
-                pic::msg() << "Can't join mcast socket: " << addr << ":" << sys_errlist[errno] << pic::log;
+                 pic::msg() << "Can't join mcast socket: " << addr << ":" << strerror(errno) << pic::log;
             }
        }
 
@@ -251,7 +252,7 @@ namespace
 
             if(setsockopt(socket_.fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&group, sizeof(group)) < 0)
             {
-                pic::msg() << "Can't leave mcast socket: " << addr << ":" << sys_errlist[errno] << pic::log;
+                pic::msg() << "Can't leave mcast socket: " << addr << ":" << strerror(errno) << pic::log;
             }
         }
 
@@ -682,7 +683,7 @@ namespace
 
                 if((rv=::select(FD_SETSIZE,&r,0,0,&tv))<0)
                 {
-                    pic::msg() << "error in select: " << rv << ',' << sys_errlist[errno] << pic::hurl;
+                    pic::msg() << "error in select: " << rv << ',' << strerror(errno) << pic::hurl;
                 }
 
                 if(local_ || !process_monitor(&r))

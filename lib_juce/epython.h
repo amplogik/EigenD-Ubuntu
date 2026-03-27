@@ -37,6 +37,12 @@ namespace epython
 
             std::string last_error();
 
+            // Acquire/release the GIL using the saved thread state from py_startup().
+            // Must be called in matching pairs from non-Python threads before calling
+            // into pip-generated Python wrappers (which assume the GIL is held).
+            void lock();
+            void unlock();
+
         private:
             void handle_error();
 

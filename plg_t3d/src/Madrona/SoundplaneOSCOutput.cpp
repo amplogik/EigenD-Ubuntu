@@ -319,7 +319,7 @@ void SoundplaneOSCOutput::processMessage(const SoundplaneDataMessage* msg)
                     {
                         osc::int32 touchID = i + 1; // 1-based for OSC
                         std::string address("/t3d/tch");
-                        const int maxSize = 4;
+                        const int maxSize = 16;
                         char idBuf[maxSize];
                         snprintf(idBuf, maxSize, "%d", (int) touchID);                                 
                         address += std::string(idBuf);

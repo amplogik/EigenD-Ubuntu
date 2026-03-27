@@ -21,7 +21,7 @@ else
         PYTHON_BUILD ?= /usr/local/bin/python3.14
     else
         # Linux
-        PYTHON_BUILD ?= /usr/local/bin/python3.14
+        PYTHON_BUILD ?= /usr/bin/python3.12
     endif
     VENV_ACTIVATE = $(VENV_DEV)/bin/activate
     RM_RF = rm -rf

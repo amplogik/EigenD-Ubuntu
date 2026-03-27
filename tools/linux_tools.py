@@ -1,4 +1,3 @@
-
 #
 # Copyright 2009 Eigenlabs Ltd.  http://www.eigenlabs.com
 #
@@ -33,108 +32,169 @@ import shutil
 from os.path import join
 from SCons.Util import Split
 
+
 class PiLinuxEnvironment(unix_tools.PiUnixEnvironment):
+    def __init__(self, platform):
+        # Use Python 3.12 to match system wxPython and other system packages
+        unix_tools.PiUnixEnvironment.__init__(
+            self, platform, "usr/local/pi", ".belcanto", "/usr/bin/python3.12"
+        )
 
-    def __init__(self,platform):
-        # Use Python 3.14 specifically (installed via distro package manager or python.org)
-        # Linux allows multiple Python versions: python3.10, python3.11, python3.14, etc.
-        unix_tools.PiUnixEnvironment.__init__(self,platform,'usr/local/pi','.belcanto','/usr/bin/python3.14')
-
-        self.Append(LIBS=Split('dl m pthread rt'))
-        self.Append(CXXFLAGS=Split('-std=c++17'))
-        self.Append(CCFLAGS=Split('-D_XOPEN_SOURCE=600 -D_GNU_SOURCE -D_REENTRANT -g -O0 -Wall -Werror -Wno-unused-function -Wno-unused-but-set-variable -Wno-narrowing -Wno-deprecated-declarations -fmessage-length=0 -fno-strict-aliasing '))
-        self.Append(LINKFLAGS=Split('-g -z origin -Wl,--rpath-link=tmp/bin -Wl,--rpath=\\$$ORIGIN -Wl,--rpath=\\$$ORIGIN/../bin'))
-        self.Append(SHLINKFLAGS=Split('-g -z origin -Wl,--rpath-link=tmp/bin -Wl,--rpath=\\$$ORIGIN -Wl,--rpath=\\$$ORIGIN/../bin -Wl,-soname=lib${SHLIBNAME}.so'))
-        self.Replace(PI_PLATFORMTYPE='linux')
+        self.Append(LIBS=Split("dl m pthread rt curl fontconfig freetype"))
+        self.Append(
+            CXXFLAGS=Split(
+                "-std=c++17 -Wno-unused-function -Wno-unused-but-set-variable -Wno-narrowing -Wno-deprecated-declarations -Wno-attributes -Wno-parentheses -Wno-uninitialized -lcurl -lfreetype -lfontconfig"
+            )
+        )
+        self.Append(
+            CCFLAGS=Split(
+                "-D_XOPEN_SOURCE=600 -D_GNU_SOURCE -D_REENTRANT -g -O0 -Wall -Werror -Wno-unused-function -Wno-unused-but-set-variable -Wno-narrowing -Wno-deprecated-declarations -fmessage-length=0 -fno-strict-aliasing "
+            )
+        )
+        self.Append(
+            LINKFLAGS=Split(
+                "-g -z origin -Wl,--rpath-link=tmp/bin -Wl,--rpath=\\$$ORIGIN -Wl,--rpath=\\$$ORIGIN/../bin"
+            )
+        )
+        self.Append(
+            SHLINKFLAGS=Split(
+                "-g -z origin -Wl,--rpath-link=tmp/bin -Wl,--rpath=\\$$ORIGIN -Wl,--rpath=\\$$ORIGIN/../bin -Wl,-soname=lib${SHLIBNAME}.so"
+            )
+        )
+        self.Append(LDFLAGS=Split("-lcurl -lfreetype -lfontconfig"))
+        self.Replace(PI_PLATFORMTYPE="linux")
         self.Replace(IS_LINUX=True)
 
     def __getarch(self):
-        return os.popen('dpkg --print-architecture','r').read(1024)
+        return os.popen("dpkg --print-architecture", "r").read(1024)
 
-    def set_hidden(self,hidden):
+    def set_hidden(self, hidden):
         if hidden:
-            self.Append(CCFLAGS='-fvisibility=hidden')
+            self.Append(CCFLAGS="-fvisibility=hidden")
 
-    def PiBinaryDLL(self,target,package=None):
+    def PiBinaryDLL(self, target, package=None):
         env = self.Clone()
 
-        f1 = env.File('lib'+target+'.so')
+        f1 = env.File("lib" + target + ".so")
 
-        run_library1=env.Install(env.subst('$BINRUNDIR'),f1)
-        env.Alias('target-runtime',run_library1)
+        run_library1 = env.Install(env.subst("$BINRUNDIR"), f1)
+        env.Alias("target-runtime", run_library1)
 
         if package:
             env.set_package(package)
-            inst_library_1 = env.Install(env.subst('$BINSTAGEDIR'),f1)
+            inst_library_1 = env.Install(env.subst("$BINSTAGEDIR"), f1)
 
-        return env.addlibname(run_library1[0],target)
-
+        return env.addlibname(run_library1[0], target)
 
     def Initialise(self):
         unix_tools.PiUnixEnvironment.Initialise(self)
 
     def Finalise(self):
         unix_tools.PiUnixEnvironment.Finalise(self)
-        pkgs = [ self.make_package(pkg) for pkg in self.shared.packages ]
-        idx = self.File(join('$PKGDIR','Packages.gz'))
-        pkgdir = self.Dir('$PKGDIR').abspath
+        pkgs = [self.make_package(pkg) for pkg in self.shared.packages]
+        idx = self.File(join("$PKGDIR", "Packages.gz"))
+        pkgdir = self.Dir("$PKGDIR").abspath
 
-        def make_index(target,source,env):
-            cmd=env.subst('cd %s && dpkg-scanpackages . /dev/null | gzip -f >%s' % (pkgdir,target[0].abspath))
+        def make_index(target, source, env):
+            cmd = env.subst(
+                "cd %s && dpkg-scanpackages . /dev/null | gzip -f >%s"
+                % (pkgdir, target[0].abspath)
+            )
             os.system(cmd)
 
-        idxtgt = self.Command(idx,pkgs,make_index)
-        self.Alias('target-pkg',idxtgt)
+        idxtgt = self.Command(idx, pkgs, make_index)
+        self.Alias("target-pkg", idxtgt)
 
-    def debname(self,pkg):
+    def debname(self, pkg):
         if pkg in self.shared.packages:
-           return 'pi-%s' % pkg.replace('_','-')
+            return "pi-%s" % pkg.replace("_", "-")
         else:
-           return pkg
+            return pkg
 
-    def make_package(self,pkg):
-        meta = self.shared.package_descriptions.get(pkg,None)
+    def make_package(self, pkg):
+        meta = self.shared.package_descriptions.get(pkg, None)
         debname = self.debname(pkg)
         arch = self.__getarch().strip()
 
         if meta is None:
-            raise RuntimeError(pkg+' has no metadata')
+            raise RuntimeError(pkg + " has no metadata")
 
-        assert 'desc' in meta
+        assert "desc" in meta
 
         env = self.Clone()
         env.Replace(PI_PACKAGENAME=pkg)
-        v = meta['version'] or env.subst('$PI_RELEASE')
+        v = meta["version"] or env.subst("$PI_RELEASE")
 
-        template =["Package: %s" % debname,
-                   "Version: %s" % v,
-                   "Maintainer: support@eigenlabs.com",
-                   "Architecture: %s" % arch,
-                   "Section: sound",
-                   "Priority: optional",
-                   "Description: %s" % meta['desc']
-                  ]
+        template = [
+            "Package: %s" % debname,
+            "Version: %s" % v,
+            "Maintainer: support@eigenlabs.com",
+            "Architecture: %s" % arch,
+            "Section: sound",
+            "Priority: optional",
+            "Description: %s" % meta["desc"],
+        ]
 
-        if 'longdesc' in meta:
-            for l in meta['longdesc'].splitlines():
+        if "longdesc" in meta:
+            for l in meta["longdesc"].splitlines():
                 l = l.strip()
                 if l:
                     template.append(" %s" % l)
                 else:
                     template.append(" .")
 
-        if 'depends' in meta and meta['depends']:
+        if "depends" in meta and meta["depends"]:
             template.append(
-                "Depends: %s" % ','.join([self.debname(d) for d in meta['depends']])
+                "Depends: %s" % ",".join([self.debname(d) for d in meta["depends"]])
             )
 
-        template = "\n".join(template)+"\n"
+        template = "\n".join(template) + "\n"
 
-        ctl = env.File(join('$STAGEDIR','DEBIAN','control'))
-        deb = env.File(join('$PKGDIR','%s_%s.deb' % (debname,v)))
-	
-        env.baker(ctl,template)
+        ctl = env.File(join("$STAGEDIR", "DEBIAN", "control"))
+        deb = env.File(join("$PKGDIR", "%s_%s.deb" % (debname, v)))
 
-        pkgtgt = env.Command(deb,env['STAGEDIR'],'fakeroot sh -c " chown -R 0:0 $SOURCE && chmod -R go-w $SOURCE && chmod -R a+rX $SOURCE && dpkg-deb -b $SOURCE $TARGET "')[0]
-        env.Alias('target-pkg',pkgtgt)
+        env.baker(ctl, template)
+
+        # Install .desktop file and icon for the eigend package
+        if pkg == "eigend":
+            self._install_desktop_entry(env)
+
+        pkgtgt = env.Command(
+            deb,
+            env["STAGEDIR"],
+            'fakeroot sh -c " chown -R 0:0 $SOURCE && chmod -R go-w $SOURCE && chmod -R a+rX $SOURCE && dpkg-deb -b $SOURCE $TARGET "',
+        )[0]
+        env.Alias("target-pkg", pkgtgt)
         return pkgtgt
+
+    def _install_desktop_entry(self, env):
+        """Install a .desktop file and icon for the eigend application."""
+        stagedir = env.subst("$STAGEDIR")
+
+        # Compute the installed bin path by stripping the staging prefix.
+        # BINSTAGEDIR is e.g. tmp/stage/eigend/usr/local/pi/release-3.0.0-beta-3/bin
+        # We want: /usr/local/pi/release-3.0.0-beta-3/bin/eigend
+        installed_bindir = env.subst("$BINSTAGEDIR").replace(stagedir, "", 1)
+
+        # Create the .desktop file content
+        desktop_content = (
+            "[Desktop Entry]\n"
+            "Type=Application\n"
+            "Name=EigenD\n"
+            "Comment=EigenD Music Software\n"
+            "Exec=%s/eigend\n"
+            "Icon=eigend\n"
+            "Terminal=false\n"
+            "Categories=Audio;Music;AudioVideo;\n"
+            "Keywords=music;synthesizer;eigenharp;\n"
+        ) % installed_bindir
+
+        # Install the .desktop file to /usr/share/applications/
+        desktop_dir = join(stagedir, "usr", "share", "applications")
+        desktop_file = env.File(join(desktop_dir, "eigend.desktop"))
+        env.baker(desktop_file, desktop_content)
+
+        # Install the icon to /usr/share/pixmaps/
+        pixmaps_dir = join(stagedir, "usr", "share", "pixmaps")
+        icon_src = env.File("#resources/eigend.png")
+        env.Install(pixmaps_dir, icon_src)

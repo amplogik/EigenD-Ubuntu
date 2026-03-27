@@ -33,6 +33,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <pthread.h>
 #include <errno.h>
 #include <signal.h>
@@ -237,7 +238,7 @@ bool pic_threadid_equal(pic_threadid_t a, pic_threadid_t b)
 
 static int __lock_stack()
 {
-    char stackstuff[16384];
+    char stackstuff[16384] = {0};
     mlock(stackstuff,sizeof(stackstuff));
     return 1;
 }

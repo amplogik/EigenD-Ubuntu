@@ -73,32 +73,24 @@ bool epython::PythonInterface::py_startup()
 
     {
       std::string root = pic::release_root_dir();
-      char cmdbuffer[4096];
-      char escbuffer[4096];
-
-      char *q = escbuffer;
-      const char *p = root.c_str();
-
-      while(*p)
+      
+      std::string escaped_root;
+      for (char c : root)
       {
-        if(*p=='\\')
-        {
-            *q++ = '\\';
-        }
-
-        *q++ = *p++;
+        if (c == '\\')
+          escaped_root += "\\\\";
+        else
+          escaped_root += c;
       }
-
-      *q = 0;
-
-      sprintf(cmdbuffer,
-         "import sys,os\n"
-         "if '' in sys.path: sys.path.remove('')\n"
-         "if os.getcwd() in sys.path: sys.path.remove(os.getcwd())\n"
-         "sys.path.insert(0,os.path.join('%s','modules'))\n"
-         "sys.path.insert(0,os.path.join('%s','bin'))\n"
-            ,escbuffer,escbuffer
-      );
+      
+      char cmdbuffer[256];
+      snprintf(cmdbuffer, sizeof(cmdbuffer),
+          "import sys,os\n"
+          "if '' in sys.path: sys.path.remove('')\n"
+          "if os.getcwd() in sys.path: sys.path.remove(os.getcwd())\n"
+          "sys.path.insert(0,os.path.join('%s','modules'))\n"
+          "sys.path.insert(0,os.path.join('%s','bin'))\n",
+          escaped_root.c_str(), escaped_root.c_str());
 
       PyRun_SimpleString(cmdbuffer);
     }

@@ -64,7 +64,7 @@ juce_common_modules = [
 # SheenbidiWrapper.c is our (required) wrapper araound - juce/modules/juce_graphics/unicode/sheenbidi/Source/SheenBidi.c
 juce_common_files = Split("""
     juce/modules/juce_core/juce_core_CompilationTime.cpp
-    juce/modules/juce_graphics/fonts/harfbuzz/harfbuzz.cc
+    juce/modules/juce_graphics/juce_graphics_Harfbuzz.cpp
     SheenbidiWrapper.c
 """)
 
