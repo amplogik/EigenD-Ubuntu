@@ -66,7 +66,7 @@ JucerScanCtlComponent::JucerScanCtlComponent ()
     label2->setColour (TextEditor::backgroundColourId, Colour (0x00000000));
 
     addAndMakeVisible (label3 = new Label ("new label",
-                                           TRANS("VST Search Path:")));
+                                           TRANS("Plugin Search Path:")));
     label3->setFont (Font (15.00f, Font::plain));
     label3->setJustificationType (Justification::centredLeft);
     label3->setEditable (false, false, false);

@@ -150,9 +150,10 @@ namespace
                     AudioPluginFormat *format = get_manager(app_)->getFormat(cur_format_);
                     FileSearchPath path = format->getDefaultLocationsToSearch();
 
-                    if(format->getName()=="VST")
+                    // Append user-configured search paths to all formats
+                    for(int i=0; i<path_.getNumPaths(); i++)
                     {
-                        path = path_;
+                        path.addIfNotAlreadyThere(path_[i]);
                     }
 
                     plugins_ = format->searchPathsForPlugins(path,true);
@@ -851,7 +852,7 @@ void EigenScanCtlComponent::buttonClicked(Button* buttonThatWasClicked)
 
     if(buttonThatWasClicked==add_button())
     {
-        FileChooser f("VST Directory");
+        FileChooser f("Plugin Directory");
         bool t = f.browseForDirectory();
 
         if(t)
