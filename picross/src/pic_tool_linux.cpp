@@ -22,6 +22,7 @@
 #include <string>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <signal.h>
 #include <cstdlib>
 #include <unistd.h>
 
@@ -46,14 +47,25 @@ struct pic::bgprocess_t::impl_t
         if(started_)
         {
             started_=false;
-            kill(pid_,9);
 
-            while(kill(pid_,0)>=0)
+            // Try graceful SIGTERM first
+            kill(pid_,SIGTERM);
+
+            // Wait up to 3 seconds for graceful exit
+            for(int i=0; i<3; i++)
             {
+                if(waitpid(pid_,0,WNOHANG)!=0)
+                {
+                    return;
+                }
                 sleep(1);
             }
-            
-            waitpid(pid_,0,WNOHANG);
+
+            // Force kill if still running
+            kill(pid_,SIGKILL);
+
+            // Reap the zombie
+            waitpid(pid_,0,0);
         }
     }
 
@@ -61,11 +73,16 @@ struct pic::bgprocess_t::impl_t
     {
         if(started_)
         {
-            if(kill(pid_,0)>=0)
+            int status;
+            pid_t result = waitpid(pid_,&status,WNOHANG);
+
+            if(result==0)
             {
+                // Still running
                 return true;
             }
 
+            // Process exited or error
             started_=false;
         }
 
@@ -140,14 +157,25 @@ struct pic::tool_t::impl_t
         if(started_)
         {
             started_=false;
-            kill(pid_,9);
 
-            while(kill(pid_,0)>=0)
+            // Try graceful SIGTERM first
+            kill(pid_,SIGTERM);
+
+            // Wait up to 3 seconds for graceful exit
+            for(int i=0; i<3; i++)
             {
+                if(waitpid(pid_,0,WNOHANG)!=0)
+                {
+                    return;
+                }
                 sleep(1);
             }
-            
-            waitpid(pid_,0,WNOHANG);
+
+            // Force kill if still running
+            kill(pid_,SIGKILL);
+
+            // Reap the zombie
+            waitpid(pid_,0,0);
         }
     }
 
@@ -155,11 +183,16 @@ struct pic::tool_t::impl_t
     {
         if(started_)
         {
-            if(kill(pid_,0)>=0)
+            int status;
+            pid_t result = waitpid(pid_,&status,WNOHANG);
+
+            if(result==0)
             {
+                // Still running
                 return true;
             }
 
+            // Process exited or error
             started_=false;
         }
 

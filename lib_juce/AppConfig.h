@@ -56,6 +56,10 @@
 #define JUCE_PLUGINHOST_AU 1
 #endif
 
+#ifdef PI_LINUX
+#define JUCE_PLUGINHOST_VST3 1
+#endif
+
 // #define JUCE_FORCE_DEBUG 1
 // #define JUCE_LOG_ASSERTIONS 1
 // #define JUCE_CHECK_MEMORY_LEAKS 1
