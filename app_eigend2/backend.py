@@ -159,14 +159,9 @@ class Backend(eigend_native.c2p):
         if self.frontend:
             self.frontend.load_ended()
             if errors:
-                if sys.platform == "linux":
-                    print("Load Problems (suppressed dialog):")
-                    for e in errors:
-                        print(" ", e)
-                else:
-                    self.frontend.alert_dialog(
-                        "Load Problems", "Load Problems", "\n".join(errors)
-                    )
+                self.frontend.alert_dialog(
+                    "Load Problems", "Load Problems", "\n".join(errors)
+                )
 
     def __set_latest_release(self, release):
         if self.frontend:
