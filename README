@@ -96,6 +96,17 @@ libasound2-dev
 libxinerama-dev
 mesa-common-dev
 
+Optional packages
+~~~~~~~~~~~~~~~~~
+
+ladspa-sdk            (provides <ladspa.h>; install to enable LADSPA plugin
+                       hosting. The build auto-detects this header and prints
+                       "LADSPA plugin hosting enabled" when present, or
+                       "...disabled (install ladspa-sdk to enable)" when not.)
+
+VST3 and LV2 plugin hosting are always enabled on Linux — their SDKs ship
+inside the JUCE submodule and require no extra system packages.
+
 please note: linux build is highly experimental, and libs required may be subject to change.
 It would be very much appeciated if you build for linux,and have better instructions on requirements. 
 

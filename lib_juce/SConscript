@@ -98,6 +98,15 @@ if env['IS_LINUX']:
     juce_env.Append(CPPPATH='/usr/include/freetype2')
     juce_env.Append(LIBS=Split('X11 freetype Xext asound'))
 
+    # LADSPA hosting (optional): only enabled if <ladspa.h> is installed
+    # (e.g. `apt install ladspa-sdk`). When absent we silently build without it.
+    if any(os.path.exists(p) for p in ('/usr/include/ladspa.h',
+                                       '/usr/local/include/ladspa.h')):
+        juce_env.Append(CCFLAGS='-DJUCE_PLUGINHOST_LADSPA=1')
+        print("lib_juce: LADSPA plugin hosting enabled")
+    else:
+        print("lib_juce: LADSPA plugin hosting disabled (install ladspa-sdk to enable)")
+
 if env['IS_MACOSX']:
     # macOS uses .mm extension (Objective-C++)
     juce_files = [f'juce/modules/{mod}/{mod}.mm' for mod in juce_common_modules] + juce_common_files
