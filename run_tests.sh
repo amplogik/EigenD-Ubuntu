@@ -161,11 +161,15 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Find Python executable
+# Find Python executable (newest supported first)
 if [[ -f ".venv/bin/python" ]]; then
     PYTHON_EXE=".venv/bin/python"
 elif command -v python3.14 &> /dev/null; then
     PYTHON_EXE="python3.14"
+elif command -v python3.13 &> /dev/null; then
+    PYTHON_EXE="python3.13"
+elif command -v python3.12 &> /dev/null; then
+    PYTHON_EXE="python3.12"
 elif command -v python3 &> /dev/null; then
     PYTHON_EXE="python3"
 else

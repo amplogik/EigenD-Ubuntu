@@ -33,11 +33,24 @@ from os.path import join
 from SCons.Util import Split
 
 
+# Supported Python versions in preference order (newest first).
+# generic_tools.PiGenericEnvironment honours $PI_PYTHON ahead of this default,
+# so this only kicks in when the user hasn't set an explicit override.
+_PYTHON_CANDIDATES = ("python3.14", "python3.13", "python3.12")
+
+
+def _detect_python():
+    for name in _PYTHON_CANDIDATES:
+        path = shutil.which(name)
+        if path:
+            return path
+    return None
+
+
 class PiLinuxEnvironment(unix_tools.PiUnixEnvironment):
     def __init__(self, platform):
-        # Use Python 3.12 to match system wxPython and other system packages
         unix_tools.PiUnixEnvironment.__init__(
-            self, platform, "usr/local/pi", ".belcanto", "/usr/bin/python3.12"
+            self, platform, "usr/local/pi", ".belcanto", _detect_python()
         )
 
         self.Append(LIBS=Split("dl m pthread rt curl fontconfig freetype"))

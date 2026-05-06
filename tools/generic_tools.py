@@ -207,6 +207,9 @@ class PiGenericEnvironment(SCons.Environment.Environment):
         self.Append(LIBPATH=libpath)
         self.Append(LINKFLAGS=linkextra)
         self.Replace(PI_PREFIX=prefix or None)
+        # Distro package name for the Python we just linked against,
+        # e.g. "python3.12" or "python3.14". Empty on macOS framework builds.
+        self.Replace(PI_PYTHON_VERSION=libs)
 
     def libmapper(self, target, source, env, for_signature):
         libs = env["PILIBS"]

@@ -51,24 +51,11 @@ bool epython::PythonInterface::py_startup()
     Py_Initialize();
 
 
-    // Verify Python 3.14 is available (required for build compatibility)
-    // PY_VERSION_HEX format: 0xMMmmrrLL (Major, minor, micro, release level)
-    if (PY_VERSION_HEX < 0x030E0000) // 3.14.0 = 0x030E0000
-    {
-        const char* version = Py_GetVersion();
-        char error_msg[1024];
-        snprintf(error_msg, sizeof(error_msg),
-            "Python 3.14 or later is required.\n\n"
-            "Found: %s\n\n"
-            "EigenD was built with Python 3.14 and requires this version to run.\n\n"
-            "Please install Python 3.14 from:\n"
-            "  macOS/Windows: https://www.python.org/downloads/\n"
-            "  Linux: apt install python3.14 (or use deadsnakes PPA)",
-            version);
-        last_error_ = std::string(error_msg);
-        Py_Finalize();
-        return false;
-    }
+    // Compile-time check: the headers we built against must be 3.12+.
+    // (Runtime ABI compatibility is enforced separately by the dynamic linker.)
+#if PY_VERSION_HEX < 0x030C0000 // 3.12.0
+#error "EigenD requires Python 3.12 or newer headers"
+#endif
 
 
     {

@@ -1067,7 +1067,7 @@ static void dispatch_method(lo_server s, const char *path,
 
     /* If we find no matching methods, check for protocol level stuff */
     if (ret == 1 && s->protocol == LO_UDP) {
-	char *pos = strrchr(path, '/');
+	const char *pos = strrchr(path, '/');
 
 	/* if its a method enumeration call */
 	if (pos && *(pos+1) == '\0') {

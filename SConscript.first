@@ -22,13 +22,13 @@ Import('master_env')
 
 import os.path
 
-release = '3.0.1'
+release = '3.0.2'
 compatible = '3.0'
 
 status = {
-    'windows': 'beta-1',
-    'linux': 'beta-1',
-    'macosx': 'beta-1'
+    'windows': 'beta-2',
+    'linux': 'beta-2',
+    'macosx': 'beta-2'
 }
 
 tag = '%s-%s' % (release,status[master_env['PI_PLATFORMTYPE']])
@@ -37,7 +37,10 @@ compatible_tag = '%s-%s' % (compatible,status[master_env['PI_PLATFORMTYPE']])
 master_env.Prepend(CPPPATH=[master_env.Dir('.').srcnode().abspath])
 master_env.Prepend(CPPPATH=[os.path.join(master_env.Dir('.').srcnode().abspath,'steinberg')])
 master_env.PiRelease('release',tag,compatible_tag)
-master_env.PiPackageDescription('eigend',desc='EigenD Application',groups=('app',),depends=['python3.14'])
+
+# Debian package depends on whichever python3.X EigenD actually got linked against.
+python_dep = master_env.subst('$PI_PYTHON_VERSION') or 'python3'
+master_env.PiPackageDescription('eigend',desc='EigenD Application',groups=('app',),depends=[python_dep])
 master_env.PiPackageDescription('eigend-build',desc='EigenD Build System',groups=('bld',))
 master_env.PiBuildSystem(package='eigend-build')
 
@@ -53,7 +56,7 @@ if master_env['IS_MACOSX']:
 
 if master_env['IS_LINUX']:
     prereq = [
-        ('/usr/bin/python3.14', 'Python 3.14 is required. Install with: sudo apt-get install python3.14')
+        ('/usr/bin/python3', 'Python 3.12 or newer is required. Install with: sudo apt-get install python3.14 (or 3.13/3.12)')
     ]
 
 master_env.PiPackageCollection('EigenD-gpl',groups=('app',),prereq=prereq)

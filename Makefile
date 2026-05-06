@@ -20,8 +20,8 @@ else
         # macOS
         PYTHON_BUILD ?= /usr/local/bin/python3.14
     else
-        # Linux
-        PYTHON_BUILD ?= /usr/bin/python3.12
+        # Linux: pick the newest supported interpreter on PATH (override with PYTHON_BUILD=...)
+        PYTHON_BUILD ?= $(shell command -v python3.14 2>/dev/null || command -v python3.13 2>/dev/null || command -v python3.12 2>/dev/null)
     endif
     VENV_ACTIVATE = $(VENV_DEV)/bin/activate
     RM_RF = rm -rf
@@ -69,9 +69,10 @@ dev-setup:
 	@echo "========================================"
 	@echo "Setting up EigenD development environment"
 	@echo "========================================"
-	@if [ ! -x "$(PYTHON_BUILD)" ]; then \
-		echo "ERROR: Python not found at $(PYTHON_BUILD)"; \
-		echo "Please install Python 3.14 from python.org"; \
+	@if [ -z "$(PYTHON_BUILD)" ] || [ ! -x "$(PYTHON_BUILD)" ]; then \
+		echo "ERROR: No supported Python interpreter found ($(PYTHON_BUILD))"; \
+		echo "Install python3.12, 3.13, or 3.14 (e.g. apt install python3.14),"; \
+		echo "or set PYTHON_BUILD=/path/to/python explicitly."; \
 		exit 1; \
 	fi
 	@echo "Using Python: $(PYTHON_BUILD)"
