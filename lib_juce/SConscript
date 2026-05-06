@@ -44,6 +44,12 @@ me = env.Dir('.').abspath
 juce_env.Append(CPPPATH='juce/modules')
 juce_env.Append(CPPPATH='juce/modules/juce_audio_processors/format_types/VST3_SDK')
 
+# LV2 hosting: vendored lilv/sord/serd/sratom amalgamation expects these on the
+# include path (mirrors juce/extras/Build/CMake/JUCEModuleSupport.cmake).
+_lv2_base = 'juce/modules/juce_audio_processors/format_types/LV2_SDK'
+for _sub in ('', '/lv2', '/serd', '/sord', '/sord/src', '/sratom', '/lilv', '/lilv/src'):
+    juce_env.Append(CPPPATH=_lv2_base + _sub)
+
 # Common JUCE module names (platform-specific extensions added below)
 juce_common_modules = [
     'juce_audio_basics',
@@ -84,7 +90,11 @@ if env['IS_WINDOWS']:
 if env['IS_LINUX']:
     # Linux uses .cpp extension
     juce_files = [f'juce/modules/{mod}/{mod}.cpp' for mod in juce_common_modules] + juce_common_files
-    juce_env.Append(CCFLAGS=f'-Wno-unused-variable -Wno-sign-compare -DLINUX=1 {juce_common_flags} -include AppConfig.h')
+    # LV2 hosting: compile vendored lilv/sord/serd/sratom amalgamation TU.
+    juce_files += ['juce/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp']
+    # JUCE is third-party; don't promote its warnings to errors (the LV2 amalgamation
+    # in particular redefines _POSIX_C_SOURCE which glibc already sets via -D_GNU_SOURCE).
+    juce_env.Append(CCFLAGS=f'-Wno-error -Wno-unused-variable -Wno-sign-compare -DLINUX=1 {juce_common_flags} -include AppConfig.h')
     juce_env.Append(CPPPATH='/usr/include/freetype2')
     juce_env.Append(LIBS=Split('X11 freetype Xext asound'))
 

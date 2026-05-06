@@ -58,6 +58,7 @@
 
 #ifdef PI_LINUX
 #define JUCE_PLUGINHOST_VST3 1
+#define JUCE_PLUGINHOST_LV2 1
 #endif
 
 // #define JUCE_FORCE_DEBUG 1
