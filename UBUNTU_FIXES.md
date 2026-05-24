@@ -95,6 +95,34 @@
 > 2. changed Python requirement back to 3.12 (system native on Ubuntu 24. (A stable 3.14 will only be available in April with Ubuntu 26 unless you use deadsnakes ppa, and it has issues) 
 > 3. Had to use custom harfbuzz built in project, and not system.  System harfbuzz is ahead of JUCE, and results in glyph positioning errors if you are using mesa built with AMD drivers.
 
+### Install / Upgrade Gotcha — stale unversioned tree shadows new build
+
+The `pi-eigend` deb installs into a **versioned subtree**: `/usr/local/pi/release-<version>/`. It does **not** overlay the unversioned `/usr/local/pi/{bin,modules,include,plugins,resources,tools}` paths. The desktop entry at `/usr/share/applications/eigend.desktop` correctly points at the versioned path, so launching via the desktop icon is fine.
+
+If a stale unversioned install exists at `/usr/local/pi/{bin,modules,...}` (e.g. from a much older install, manual `make install`, or a system snapshot/restore), invoking `/usr/local/pi/bin/eigend` from the command line silently runs the **old** binary instead of the new one.
+
+**Symptom observed (2026-05-24):** UI launches normally, libusb PSU mode-flip succeeds (EM→MM), but instrument input is dead and the console shows:
+```
+ImportError: No module named app_eigend2
+NameError: name 'bugs_cli' is not defined
+```
+The stale binary was a 2024-12-17 build linked to `libpython2.7` with Python 2.7 `.pyc` files — broken because Ubuntu has progressively dropped Python 2.7 from the archive. The stale tree was not owned by any current dpkg package (`dpkg -S /usr/local/pi/bin/eigend` returned nothing); suspected origin is a system snapshot/restore post-Ubuntu-upgrade.
+
+**Diagnosis:**
+```sh
+file /usr/local/pi/bin/eigend                       # check build date
+ldd  /usr/local/pi/bin/eigend | grep python         # libpython2.7 is the giveaway
+file /usr/local/pi/modules/app_eigend2/*.pyc        # "python 2.7 byte-compiled" confirms
+```
+
+**Fix:**
+```sh
+sudo apt-get purge -y pi-eigend
+sudo mv /usr/local/pi /usr/local/pi.mixed            # archive anything that survived purge
+sudo dpkg -i tmp/pkg/pi-eigend_<version>.deb
+ls /usr/local/pi                                     # should contain only release-<version>/
+```
+
 ### TODO
 - plugin scanner doesn't work, and throws a bunch of errors on first load. 
 >> I suspect that this is because I am using jBridge to load win VSTs on linux. Haven't really looke into it much.  However, most linux users are using other VST hosts or LV2, LADSPA plugins, which are not supported.  I will look into this when I have time.
