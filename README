@@ -24,6 +24,42 @@ I will likely close issues, if I have no context issues.
 
 
 
+Troubleshooting
+---------------
+
+Base station / controller goes silent on Linux (no lights, setups or keygroups)
+...............................................................................
+
+Symptom: the Alpha/Tau base station enumerates normally and EigenD's mode
+switch succeeds (the USB id flips from 2139:0003 "PSU-EM" to 2139:0105
+"PSU-MM"). The controller's own LEDs show it linked to the base station, and
+the base station shows linked to the computer - but EigenD sends nothing to the
+controller: no tonic lights, no key splits, no setups, as if it were unplugged.
+
+Cause: the base station is mains powered, so it can get stuck with its
+isochronous OUT stream wedged and retain that bad state across a USB replug
+*and* across a host reboot. Control traffic and the inbound stream keep working,
+which is why everything still reports "connected". A USB-level device reset
+clears it. The native macOS/Windows drivers reset the device on open; the Linux
+path historically did not, so once wedged it stayed wedged until the hardware
+was reset from another machine.
+
+Fix: EigenD on Linux now issues a USB reset (libusb_reset_device) when it opens
+the device, so it self-heals on start - just quit and restart EigenD. If you
+ever need to disable the automatic reset (e.g. it interferes with some other
+device), set the environment variable PI_USB_NO_RESET=1 before launching.
+
+Manual fallback: if you are on an older build, or want to clear the device by
+hand, reset it from the host with usbreset (from the usbutils package) while
+EigenD is stopped, then restart EigenD:
+
+    lsusb | grep -i eigen          # confirm it is present
+    sudo usbreset 2139:0105        # PSU-MM (running mode)
+    sudo usbreset 2139:0003        # PSU-EM (pre mode-switch), if shown instead
+
+(usbreset performs the same USBDEVFS_RESET ioctl that EigenD now does on open.)
+
+
 Building EigenD
 ---------------
 

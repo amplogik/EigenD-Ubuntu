@@ -763,16 +763,52 @@ pic::usbdevice_t::impl_t::impl_t(const char *name, unsigned iface, pic::usbdevic
     }
     
     dhandle_=open_usb_device(name);
-    
+
     if(dhandle_== 0ULL) return;
-    
+
+    // Reset the device before claiming it.
+    //
+    // The Eigenlabs devices (in particular the self-powered Alpha/Tau base
+    // station, PSU-MM) can get wedged into a state where the isochronous OUT
+    // stream silently stops: control and IN traffic keep working so the device
+    // still reports as connected and the controller LEDs say "linked", but
+    // nothing EigenD sends ever reaches the controller (no tonic lights, no
+    // key splits, no setups). Because the base station is mains powered it
+    // retains this bad state across a USB replug AND across a host reboot, and
+    // the Linux open path historically had no way to clear it - so once wedged
+    // it stayed wedged until the device was reset from another machine. The
+    // native macOS/Windows drivers reset/reconfigure the device on open
+    // (see SetConfiguration / ResetDevice in pic_usb_macosx.cpp); this brings
+    // the Linux path into line. A bus-level reset (== usbreset / USBDEVFS_RESET)
+    // clears the wedge without disturbing the already-downloaded MM firmware.
+    //
+    // Set PI_USB_NO_RESET to skip this if it ever interferes with a device.
+    if(getenv("PI_USB_NO_RESET") == NULL)
+    {
+        status = libusb_reset_device(dhandle_);
+        if(status == LIBUSB_ERROR_NOT_FOUND)
+        {
+            // The reset caused the device to re-enumerate (descriptors changed
+            // or address moved). The handle is now stale; drop it and let the
+            // enumerator re-detect and reopen the device.
+            pic::logmsg() << "pic::usbdevice_t::impl_t : device re-enumerated after reset, reopening " << name;
+            libusb_close(dhandle_);
+            dhandle_ = open_usb_device(name);
+            if(dhandle_ == 0ULL) return;
+        }
+        else if(status != LIBUSB_SUCCESS)
+        {
+            pic::logmsg() << "pic::usbdevice_t::impl_t : reset_device failed: " << libusb_error_name(status) << " (" << status << ")";
+        }
+    }
+
 //	libusb_set_detach_kernel_driver(dhandle_,1);
 	status = libusb_claim_interface(dhandle_, iface);
 	if (status != LIBUSB_SUCCESS) {
 		pic::logmsg() << "pic::usbdevice_t::impl_t  claim_interface failed: %s\n", libusb_error_name(status);
 		return;
 	}
-	opened_ = true;    
+	opened_ = true;
 
 	// determine if high speed usb device
     speed = libusb_get_device_speed(libusb_get_device(dhandle_));

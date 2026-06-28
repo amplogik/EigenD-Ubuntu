@@ -123,6 +123,24 @@ sudo dpkg -i tmp/pkg/pi-eigend_<version>.deb
 ls /usr/local/pi                                     # should contain only release-<version>/
 ```
 
+### USB — base station goes silent (isochronous OUT wedged)
+
+**Symptom (recurring, 2026-06-28):** The Alpha/Tau base station (PSU) enumerates fine and flips EM→MM normally (`2139:0003` PSU-EM → `2139:0105` PSU-MM). The controller's own LEDs show it linked to the base station, and the base station shows linked to the computer — but EigenD sends **nothing** to the controller: no tonic lights, no key splits, no setups. It behaves as if the controller were unplugged, even though control and IN traffic clearly work (the device stays connected). Works fine on native macOS/Windows EigenD.
+
+**Key trait:** once wedged it stays wedged across EigenD restart, USB replug, **and a full host reboot**. The base station is mains-powered, so it retains the bad endpoint state; pulling its power did not clear it either. Only a USB-level reset fixed it.
+
+**Confirmation:** with the rig wedged on Linux (no machine move), a host-side bus reset cleared it immediately:
+```sh
+lsusb | grep eigen                 # note the bus/dev, e.g. 2139:0105
+sudo usbreset 2139:0105            # "Resetting PSU-MM ... ok"
+# quit + restart EigenD -> lights and setups came back
+```
+`usbreset` == the `USBDEVFS_RESET` ioctl == libusb's `libusb_reset_device`.
+
+**Root cause:** the Linux open path (`picross/src/pic_usb_linux.cpp`, `usbdevice_t::impl_t::impl_t`) only did `init → open → claim_interface → get_speed`. It never reset, reconfigured, or cleared the device. The native drivers do (see `SetConfiguration` / `ResetDevice` / `ClearPipeStallBothEnds` in `pic_usb_macosx.cpp`), which is why moving the rig to another machine "fixed" it — that machine issued the reset Linux never did.
+
+**Fix:** `pic_usb_linux.cpp` now calls `libusb_reset_device()` on open (before claim), handling `LIBUSB_ERROR_NOT_FOUND` by reopening. The reset happens on the already-mode-switched `0x0105` handle (the EM→MM firmware download is done earlier in Python — `plg_keyboard/keyboard_X.py:518-520`, `lib_alpha2/`), so it clears the wedge without disturbing the downloaded MM firmware. Set `PI_USB_NO_RESET=1` to disable if it ever interferes with another device. Kept minimal — just the reset, which is the demonstrated fix.
+
 ### TODO
 - plugin scanner doesn't work, and throws a bunch of errors on first load. 
 >> I suspect that this is because I am using jBridge to load win VSTs on linux. Haven't really looke into it much.  However, most linux users are using other VST hosts or LV2, LADSPA plugins, which are not supported.  I will look into this when I have time.
