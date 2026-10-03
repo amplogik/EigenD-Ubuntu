@@ -124,7 +124,8 @@ juce_env.PiSharedLibrary('pijuce',juce_files,libraries=juce_libraries,package='e
 
 ejuce_env = env.Clone()
 ejuce_env.Append(CPPPATH='juce/modules')
-ejuce_files = Split('ejuce.cpp ejuce_laf.cpp')
+ejuce_env.Append(CPPPATH='../lib_clap/clap/include')
+ejuce_files = Split('ejuce.cpp ejuce_laf.cpp ejuce_clap.cpp')
 ejuce_libraries = Split('pijuce pia pic')
 ejuce_env.PiSharedLibrary('ejuce',ejuce_files,libraries=ejuce_libraries,package='eigend')
 

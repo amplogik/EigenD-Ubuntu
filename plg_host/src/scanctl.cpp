@@ -19,6 +19,7 @@
 */
 
 #include <lib_juce/ejuce.h>
+#include <lib_juce/ejuce_clap.h>
 #include <lib_juce/ejuce_laf.h>
 #include <picross/pic_resources.h>
 
@@ -173,11 +174,18 @@ namespace
                 }
                 else
                 {
-                    PluginDescription *d = current_plugin_list_.getTypeForFile(plugins_[cur_plugin_]).release();
-
-                    if(d)
+                    bool known = false;
+                    for(const PluginDescription &d: current_plugin_list_.getTypes())
                     {
-                        plugin_list_.addType(*d);
+                        if(d.fileOrIdentifier == plugins_[cur_plugin_])
+                        {
+                            plugin_list_.addType(d);
+                            known = true;
+                        }
+                    }
+
+                    if(known)
+                    {
                         printf("skip %s (good)\n",std::string(plugins_[cur_plugin_].getCharPointer()).c_str());
 
                         String name = format->getNameOfPluginFromIdentifier(plugins_[cur_plugin_]);
@@ -245,9 +253,22 @@ namespace
             void plugin_loaded(const String &msg)
             {
                 XmlDocument d(msg);
-                PluginDescription info;
-                info.loadFromXml(*d.getDocumentElement());
-                plugin_list_.addType(info);
+                std::unique_ptr<XmlElement> root = d.getDocumentElement();
+
+                if(root && root->hasTagName("PLUGINS"))
+                {
+                    for(auto *child: root->getChildIterator())
+                    {
+                        PluginDescription info;
+                        if(info.loadFromXml(*child)) plugin_list_.addType(info);
+                    }
+                }
+                else if(root)
+                {
+                    PluginDescription info;
+                    info.loadFromXml(*root);
+                    plugin_list_.addType(info);
+                }
 
                 AudioPluginFormat *format = get_manager(app_)->getFormat(cur_format_);
                 String name = format->getNameOfPluginFromIdentifier(plugins_[cur_plugin_]);
@@ -716,6 +737,7 @@ class EigenScanner : public juce::JUCEApplication
             LookAndFeel::setDefaultLookAndFeel(new ejuce::EJuceLookandFeel);
 
             manager_.addDefaultFormats();
+            ejuce::add_clap_format(manager_);
 
             main_window_ = new EigenScanCtlWindow(this);
             main_window_->toFront(true);

@@ -38,6 +38,7 @@
 #include <lib_midi/control_params.h>
 
 #include <lib_juce/ejuce.h>
+#include <lib_juce/ejuce_clap.h>
 
 #include "juce.h"
 
@@ -69,6 +70,7 @@ struct host::plugin_list_t::impl_t: piw::thing_t
     {
         plugins_cache_ = ejuce::pathToFile(plugins_cache);
         plugin_formats_.addDefaultFormats();
+        ejuce::add_clap_format(plugin_formats_);
         load();
         piw::tsd_thing(this);
         timer_slow(5000);
@@ -627,6 +629,7 @@ struct host::plugin_instance_t::impl_t: midi::params_delegate_t, midi::mapping_o
         d->add_listener(pic::notify_t::method(this,&impl_t::clock_changed));
 
         plugin_formats_.addDefaultFormats();
+        ejuce::add_clap_format(plugin_formats_);
 
         midi_output_.scalar_connect(midi_out);
 

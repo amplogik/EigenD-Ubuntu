@@ -19,6 +19,7 @@
 */
 
 #include <lib_juce/ejuce.h>
+#include <lib_juce/ejuce_clap.h>
 #include <picross/pic_resources.h>
 #include <picross/pic_power.h>
 #include <memory>
@@ -33,6 +34,7 @@ namespace
             Scanner(): format_(0)
             {
                 manager_.addDefaultFormats();
+                ejuce::add_clap_format(manager_);
                 connectToPipe("EigenScanner", -1);
                 send("B");
             }
@@ -88,10 +90,15 @@ namespace
                         OwnedArray <PluginDescription> found;
                         format_->findAllTypesForFile (found, msg);
 
+                        // one file can hold several plugins (CLAP bundles, VST3 shells)
                         if(found.size()>0)
                         {
-                            std::unique_ptr<juce::XmlElement> el(found[0]->createXml().release());
-                            msg = "1"; msg+= el->createDocument(juce::String()); send(msg.toUTF8());
+                            juce::XmlElement all("PLUGINS");
+                            for(int i=0;i<found.size();i++)
+                            {
+                                all.addChildElement(found[i]->createXml().release());
+                            }
+                            msg = "1"; msg+= all.createDocument(juce::String()); send(msg.toUTF8());
                             return;
                         }
                     }
