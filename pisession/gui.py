@@ -18,6 +18,13 @@
 # along with EigenD.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import os
+# These apps draw immediately with wx.ClientDC (outside paint events), which
+# GTK3 silently drops on native Wayland: typed text never appeared. Run them
+# on X11 (XWayland), like the rest of EigenD. Must be set before GTK starts.
+if os.environ.get('WAYLAND_DISPLAY') and 'GDK_BACKEND' not in os.environ:
+    os.environ['GDK_BACKEND'] = 'x11'
+
 import piw, piagent, wx, picross
 import wx.lib.newevent
 

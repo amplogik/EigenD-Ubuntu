@@ -26,9 +26,9 @@ release = '3.0.2'
 compatible = '3.0'
 
 status = {
-    'windows': 'beta-5',
-    'linux': 'beta-5',
-    'macosx': 'beta-5'
+    'windows': 'beta-5.1',
+    'linux': 'beta-5.1',
+    'macosx': 'beta-5.1'
 }
 
 tag = '%s-%s' % (release,status[master_env['PI_PLATFORMTYPE']])
@@ -40,7 +40,11 @@ master_env.PiRelease('release',tag,compatible_tag)
 
 # Debian package depends on whichever python3.X EigenD actually got linked against.
 python_dep = master_env.subst('$PI_PYTHON_VERSION') or 'python3'
-master_env.PiPackageDescription('eigend',desc='EigenD Application',groups=('app',),depends=[python_dep])
+# Commander and Browser are wxPython 4 apps (Ubuntu: python3-wxgtk4.0)
+eigend_deps = [python_dep]
+if master_env['PI_PLATFORMTYPE'] == 'linux':
+    eigend_deps.append('python3-wxgtk4.0')
+master_env.PiPackageDescription('eigend',desc='EigenD Application',groups=('app',),depends=eigend_deps)
 master_env.PiPackageDescription('eigend-build',desc='EigenD Build System',groups=('bld',))
 master_env.PiBuildSystem(package='eigend-build')
 

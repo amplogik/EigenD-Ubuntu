@@ -594,7 +594,7 @@ class CommandPanel(wx.Window):
 
     def OnPopupItemSelected(self,evt):
         item=self.popupmenu.FindItemById(evt.GetId())
-        text=item.GetText()
+        text=item.GetItemLabelText()
         if text=='Cut':
             self.doCut()
             self.drawText(self.__getClientDC())
