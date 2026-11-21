@@ -71,7 +71,8 @@ class PiLinuxEnvironment(unix_tools.PiUnixEnvironment):
         )
         self.Append(
             SHLINKFLAGS=Split(
-                "-g -z origin -Wl,--rpath-link=tmp/bin -Wl,--rpath=\\$$ORIGIN -Wl,--rpath=\\$$ORIGIN/../bin -Wl,-soname=lib${SHLIBNAME}.so"
+                # plugins live in plugins/<vendor>/plg_x/, three levels below bin/
+                "-g -z origin -Wl,--rpath-link=tmp/bin -Wl,--rpath=\\$$ORIGIN -Wl,--rpath=\\$$ORIGIN/../bin -Wl,--rpath=\\$$ORIGIN/../../../bin -Wl,-soname=lib${SHLIBNAME}.so"
             )
         )
         self.Append(LDFLAGS=Split("-lcurl -lfreetype -lfontconfig"))

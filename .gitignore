@@ -50,3 +50,6 @@ Podfile.lock
 *.xccheckout
 *.log
 
+
+# Claude Code session data (agent worktrees etc.)
+.claude/

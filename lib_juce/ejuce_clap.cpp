@@ -163,8 +163,6 @@ namespace
             timer_t(clap_handle_t *h_, clap_id id_): h(h_), id(id_) {}
             void timerCallback() override
             {
-                static int logged = 0;
-                if(logged < 5) { ++logged; pic::logmsg() << "clap host: timer " << id << " fired"; }
                 auto ext = h->extension<clap_plugin_timer_support_t>(CLAP_EXT_TIMER_SUPPORT);
                 if(ext && ext->on_timer) ext->on_timer(h->plugin_,id);
             }
@@ -230,7 +228,6 @@ namespace
         {
             clap_handle_t *s = self(h);
             clap_id i = s->next_timer_++;
-            pic::logmsg() << "clap host: register_timer " << period_ms << "ms -> id " << i;
             auto t = std::make_unique<timer_t>(s,i);
             t->startTimer((int)std::max<uint32_t>(period_ms,1));
             s->timers_[i] = std::move(t);
@@ -257,8 +254,6 @@ namespace
             std::weak_ptr<clap_handle_t> weak = s->weak_from_this();
             pijuce::register_fd(fd,[weak,flags](int f)
             {
-                static int logged = 0;
-                if(logged < 5) { ++logged; pic::logmsg() << "clap host: fd " << f << " ready"; }
                 if(auto s = weak.lock())
                 {
                     auto ext = s->extension<clap_plugin_posix_fd_support_t>(CLAP_EXT_POSIX_FD_SUPPORT);
@@ -282,7 +277,6 @@ namespace
 
         static const void *get_extension(const clap_host_t *, const char *id)
         {
-            pic::logmsg() << "clap host: plugin asked for extension " << id;
             static const clap_host_gui_t gui = { gui_resize_hints_changed, gui_request_resize,
                                                  gui_request_show, gui_request_hide, gui_closed };
             static const clap_host_timer_support_t timer = { timer_register, timer_unregister };
@@ -373,9 +367,9 @@ namespace
                     win.x11 = pijuce::xembed_host_window(embed_.get());
                     bool parented = gui_->set_parent(pl,&win);
                     bool shown = parented && gui_->show(pl);
-                    pic::logmsg() << "clap gui: host window " << (unsigned long)win.x11
-                                  << " set_parent " << (parented?"ok":"FAILED")
-                                  << " show " << (shown?"ok":"FAILED");
+                    if(!parented || !shown)
+                        pic::logmsg() << "clap gui: set_parent " << (parented?"ok":"FAILED")
+                                      << " show " << (shown?"ok":"FAILED");
                     if(parented)
                     {
                         handle_->editor_ = this;
@@ -657,7 +651,6 @@ namespace
             juce::AudioProcessorEditor *createEditor() override
             {
                 bool ok = hasEditor();
-                pic::logmsg() << "clap gui: createEditor -> " << (ok?"embedding":"no gui, generic editor");
                 return ok ? new clap_editor_t(*this,handle_,gui_zoom_) : nullptr;
             }
 
@@ -666,7 +659,6 @@ namespace
             {
                 auto gui = handle_->extension<clap_plugin_gui_t>(CLAP_EXT_GUI);
                 bool x11 = gui && gui->is_api_supported(handle_->plugin_,CLAP_WINDOW_API_X11,false);
-                pic::logmsg() << "clap gui: ext " << (gui?"present":"MISSING") << " x11 " << (x11?"yes":"no");
                 return x11;
             }
 
