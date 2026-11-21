@@ -18,6 +18,7 @@
 */
 
 #include "MainComponent.h"
+#include <set>
 
 void SelectedItems::itemSelected(Selectable* item)
 {
@@ -6189,11 +6190,20 @@ void MainComponent::listWiresAt(int x, int y)
     std::map<int,std::list<Wire*> >::iterator i=gridSquareMap_.find(gs);
     if(i!=gridSquareMap_.end())
     {
-       std::list<Wire*> wires=i->second;
+       // Runs on every mouse move. Cheap rejects first: skip repeats of a
+       // wire in this square and wires whose bounds can't contain the
+       // pointer, before the expensive curve flattening in intersectsLine.
+       const std::list<Wire*> &wires=i->second;
+       std::set<Wire*> seen;
+       const Rectangle<float> probe((float)(x-tol),(float)(y-tol),(float)(2*tol),(float)(2*tol));
 
-       for(std::list<Wire*>::iterator iter=wires.begin();iter!=wires.end();iter++)
+       for(std::list<Wire*>::const_iterator iter=wires.begin();iter!=wires.end();iter++)
        {
             Wire* w=*iter;
+            if(!seen.insert(w).second)
+            {
+                continue;
+            }
             if (foregroundOnly)
             {
                 showWire=w->isForegrounded();
@@ -6201,6 +6211,11 @@ void MainComponent::listWiresAt(int x, int y)
             if((!w->isHidden()) && showWire)
             {
                 Path p=w->getWirePath();
+
+                if(!p.getBounds().intersects(probe))
+                {
+                    continue;
+                }
 
                 if(p.intersectsLine(Line<float>(x-tol,y,x+tol,y)))
                 {
