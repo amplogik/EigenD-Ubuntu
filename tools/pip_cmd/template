@@ -89,9 +89,17 @@ namespace
     {
         PyThreadState *ts = 0;
         PyInterpreterState *interp = 0;
-        int depth = 0;
     };
     static thread_local c2p_tstate_t c2p_tstate_;
+
+    static inline PyThreadState *c2p_current_tstate()
+    {
+#if PY_VERSION_HEX >= 0x030D0000
+        return PyThreadState_GetUnchecked();
+#else
+        return _PyThreadState_UncheckedGet();
+#endif
+    }
 
     // locks python and unlocks it on dtor
     class lock_c2p
@@ -122,11 +130,15 @@ namespace
                             s.interp=interp;
                         }
 
-                        if(s.depth++==0)
+                        // Nested C->Python->C->Python: the outer call may still
+                        // hold our state attached (no-op), or an unlock_p2c in
+                        // between released it (attach again, as before).
+                        if(c2p_current_tstate()==s.ts)
                         {
-                            PyEval_AcquireThread(s.ts);
+                            return;
                         }
 
+                        PyEval_AcquireThread(s.ts);
                         reused_=true;
                         return;
                     }
@@ -139,13 +151,7 @@ namespace
                 {
                     if(reused_)
                     {
-                        c2p_tstate_t &s = c2p_tstate_;
-
-                        if(--s.depth==0)
-                        {
-                            PyEval_ReleaseThread(s.ts);
-                        }
-
+                        PyEval_ReleaseThread(c2p_tstate_.ts);
                         return;
                     }
 
