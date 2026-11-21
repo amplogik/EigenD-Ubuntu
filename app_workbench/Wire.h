@@ -44,6 +44,7 @@ public:
     ~Segment(){};
     void draw(Graphics& g, float zoomFactor);
     Path getPath();
+    const Path& getPathRef() const { return p_; }
     int getHash();
 
 private:
@@ -182,6 +183,9 @@ public:
     // the route is calculated; lets the mouse-move hit-test reject a wire
     // without rebuilding its path
     const Rectangle<float>& getTrueBounds() const { return trueBounds_; }
+    // hit-test in true coordinates, one segment at a time: only segments
+    // whose own bounds touch the probe get the curve test
+    bool hitTestTrue(float tx, float ty, float ttol) const;
 private:
     Rectangle<float> trueBounds_;
     void updateRoutingProps();

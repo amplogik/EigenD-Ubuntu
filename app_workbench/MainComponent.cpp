@@ -6265,14 +6265,9 @@ void MainComponent::listWiresAt(int x, int y)
                     continue;
                 }
 
-                Path p=w->getWirePath();
-
-                if(!p.getBounds().intersects(probe))
-                {
-                    continue;
-                }
-
-                if(p.intersectsLine(Line<float>(x-tol,y,x+tol,y)))
+                // same test as before (horizontal or vertical probe line of
+                // +-tol screen px), done per segment in true coordinates
+                if(w->hitTestTrue(x/zoomFactor_,y/zoomFactor_,tol/zoomFactor_))
                 {
                     if(w->isRevConnect())
                     {
@@ -6282,18 +6277,6 @@ void MainComponent::listWiresAt(int x, int y)
                     {
                         wiresAt_.push_back(w);
                     }
-                }
-                else if(p.intersectsLine(Line<float>(x,y-tol,x,y+tol)))
-                {
-                    if(w->isRevConnect())
-                    {
-                        revwires.push_back(w);
-                    }
-                    else
-                    {
-                        wiresAt_.push_back(w);
-                    }
-
                 }
             }
        }

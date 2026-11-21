@@ -1358,6 +1358,27 @@ void Wire::calculateRoute()
     }
 }
 
+bool Wire::hitTestTrue(float tx, float ty, float ttol) const
+{
+    const Rectangle<float> probe(tx-ttol,ty-ttol,2*ttol,2*ttol);
+    const Line<float> h(tx-ttol,ty,tx+ttol,ty);
+    const Line<float> v(tx,ty-ttol,tx,ty+ttol);
+
+    for (std::vector<Segment*>::const_iterator j=fullSegments_.begin();j!=fullSegments_.end();++j)
+    {
+        const Path& sp=(*j)->getPathRef();
+        if(!sp.getBounds().intersects(probe))
+        {
+            continue;
+        }
+        if(sp.intersectsLine(h) || sp.intersectsLine(v))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 void Wire::calculateGrids()
 {
     clearGridMap();
