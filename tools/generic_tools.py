@@ -1246,6 +1246,7 @@ static void init_path()
 #include <dlfcn.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 static void dirname(char *buffer)
 {
@@ -1264,6 +1265,16 @@ static void dirname(char *buffer)
 
 static void get_exe(char *buffer)
 {
+    // /proc/self/exe is the real executable. dladdr() on the main program
+    // reports argv[0], which is a bare name when EigenD starts a tool with
+    // execl(path,"eigenbrowser",...): realpath() then resolved it against the
+    // cwd and the tool couldn't find its modules (No module named app_browser2).
+    ssize_t n = readlink("/proc/self/exe",buffer,4095);
+    if(n > 0)
+    {
+        buffer[n] = 0;
+        return;
+    }
     Dl_info exeInfo;
     dladdr ((const void*) get_exe, &exeInfo);
     realpath(exeInfo.dli_fname,buffer);
