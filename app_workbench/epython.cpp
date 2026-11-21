@@ -70,16 +70,17 @@ bool epython::PythonInterface::py_startup()
           escaped_root += c;
       }
       
-      char cmdbuffer[256];
-      snprintf(cmdbuffer, sizeof(cmdbuffer),
+      // Built as a std::string: a fixed 256-byte buffer silently truncated
+      // this for install roots like /usr/local/pi/release-3.0.2-beta-5,
+      // leaving an unterminated string literal and a dead Workbench.
+      std::string cmd =
           "import sys,os\n"
           "if '' in sys.path: sys.path.remove('')\n"
           "if os.getcwd() in sys.path: sys.path.remove(os.getcwd())\n"
-          "sys.path.insert(0,os.path.join('%s','modules'))\n"
-          "sys.path.insert(0,os.path.join('%s','bin'))\n",
-          escaped_root.c_str(), escaped_root.c_str());
+          "sys.path.insert(0,os.path.join('" + escaped_root + "','modules'))\n"
+          "sys.path.insert(0,os.path.join('" + escaped_root + "','bin'))\n";
 
-      PyRun_SimpleString(cmdbuffer);
+      PyRun_SimpleString(cmd.c_str());
     }
 
     thread_ = PyEval_SaveThread();
