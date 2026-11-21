@@ -104,6 +104,28 @@ stealing" and is gone with the above.
 - **Clear plugin button** (`9da3cb1f`): an empty activate on the plugin browser root means "no
   plugin"; new `clearable` browse protocol.
 
+## 6. Commander and Browser on Python 3 / wxPython 4 (all platforms)
+
+**Commits: `ff5b081e`, `4b6190ee`.** Both apps were still written for wxPython "Classic" (Python 2)
+and died at startup on Python 3 with wxPython 4 ("Phoenix"). On Ubuntu 26.04,
+`python3-wxgtk4.0` 4.2.4 is now packaged for Python 3.14, so no source build is needed.
+- **Renames:** `wx.SplashScreen` → `wx.adv.SplashScreen`; `wx.SystemSettings_GetFont` →
+  `wx.SystemSettings.GetFont`; `evt.GetPositionTuple()` → `GetPosition()`; `wx.StockCursor` →
+  `wx.Cursor`; `MenuItem.GetText` → `GetItemLabelText`; `unichr` → `chr`.
+- **`wx.AutoBufferedPaintDC` → `wx.BufferedPaintDC`.** Phoenix asserts unless the window has
+  `wxBG_STYLE_PAINT`.
+- **Python 3 `/` gives floats; wxPython ≥ 4.1 rejects floats** for coordinates and sizes. Rather
+  than audit every division, `pisession/gui.py` adds a small shim that rounds floats at the wx
+  boundary: the DC drawing calls, the window scroll and size calls, and `Rect`/`Point`/`Size`/
+  `Pen`/`Font` construction.
+- **GTK3 on native Wayland drops `wx.ClientDC` drawing** done outside paint events, and both apps
+  draw that way about 60 times. Typed text in Commander never appeared. Linux fix: set
+  `GDK_BACKEND=x11` before GTK starts (in `pisession/gui.py`), so they run on XWayland like
+  EigenD. Not relevant on macOS.
+- Both now run with no uncaught exceptions. Known: Browser's target is saved with the setup and
+  only changes via the Belcanto `browse` verb (which needs a singular target), so a target picker
+  would help.
+
 ## Not fixed yet (known)
 
 - CLAP: no `clap.state` (patches aren't saved), no params, no transport.
