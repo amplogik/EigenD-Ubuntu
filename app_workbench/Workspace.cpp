@@ -1970,6 +1970,7 @@ void Workspace::loaded(float p)
         safetyArmed_=false;
         ++loadGeneration_;
     }
+    lastProgressMs_=Time::getMillisecondCounterHiRes();
     if((double)p>=oldProgress_)
     {
         progress_=(double)p;
@@ -2034,17 +2035,30 @@ void Workspace::finishLoadingIfReady()
         {
             // never leave the window up if a layout never arrives
             safetyArmed_=true;
-            const unsigned gen=loadGeneration_;
-            Timer::callAfterDelay(30000,[this,gen]
-            {
-                if(gen==loadGeneration_ && progressWindow_!=0)
-                {
-                    pic::logmsg()<<"progress: layout never arrived, closing";
-                    deleteProgressWindow();
-                }
-            });
+            lastProgressMs_=Time::getMillisecondCounterHiRes();
+            armProgressSafety(loadGeneration_);
         }
     }
+}
+
+void Workspace::armProgressSafety(unsigned gen)
+{
+    // close only after 120 s with no progress at all; a cold start can
+    // take most of a minute between the last agent and the layout
+    Timer::callAfterDelay(10000,[this,gen]
+    {
+        if(gen!=loadGeneration_ || progressWindow_==0)
+        {
+            return;
+        }
+        if(Time::getMillisecondCounterHiRes()-lastProgressMs_ >= 120000.0)
+        {
+            pic::logmsg()<<"progress: no layout after 120 s idle, closing";
+            deleteProgressWindow();
+            return;
+        }
+        armProgressSafety(gen);
+    });
 }
 
 void Workspace::start_loading()

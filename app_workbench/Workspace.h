@@ -395,6 +395,8 @@ private:
     bool stateApplied_ = false;
     unsigned loadGeneration_ = 0;
     bool safetyArmed_ = false;
+    double lastProgressMs_ = 0;
+    void armProgressSafety(unsigned gen);
     double displayProgress_ = 0;
 
     double progress_;

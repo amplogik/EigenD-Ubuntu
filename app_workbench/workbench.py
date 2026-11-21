@@ -79,6 +79,9 @@ class Database(database.SimpleDatabase):
 
     def update_progress(self):
         target=self.__mainIndex.member_count()
+        if target<=1:
+            # index lists only the workbench itself: nothing to report yet
+            return
         delta=abs(self.__agentCount-target)
         p=float(target-delta)/float(target)
         #print 'agentCount=',self.__agentCount,self.__mainIndex.member_count(),p
@@ -91,6 +94,8 @@ class Database(database.SimpleDatabase):
 
     def check_progress(self):
         print('check_progress', self.__agentCount, self.__mainIndex.member_count())
+        if self.__mainIndex.member_count()<=1:
+            return
         if(self.__agentCount==self.__mainIndex.member_count()):
             if self.__listener:
                 self.__listener.loaded(0.999)
