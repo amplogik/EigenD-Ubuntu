@@ -203,6 +203,10 @@ class PluginBrowser(atom.Atom):
 preset_chunk_size = 8000
 
 def chunker(s):
+    # as_blob2() gives a str (std::string bridged as Latin-1, byte-for-byte);
+    # zlib needs bytes. Mirror of PluginStateBlob.get_blob().
+    if isinstance(s, str):
+        s = s.encode('latin-1')
     z = zlib.compress(s)
     zl = len(z)
     chunk = 1
@@ -210,7 +214,7 @@ def chunker(s):
     remain = zl
     while remain>0:
         l = min(preset_chunk_size,remain)
-        yield chunk,piw.makeblob2(z[index:index+l],0)
+        yield chunk,piw.makeblob2(z[index:index+l].decode('latin-1'),0)
         chunk += 1
         index += l
         remain -= l
