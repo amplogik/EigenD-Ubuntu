@@ -177,6 +177,13 @@ private:
     // grid squares this wire is listed in, so clearGridMap() only touches
     // those instead of every square (zoom re-routes every wire)
     std::set<int> gridSquares_;
+public:
+    // bounds of the full route in true (unzoomed) coordinates, cached when
+    // the route is calculated; lets the mouse-move hit-test reject a wire
+    // without rebuilding its path
+    const Rectangle<float>& getTrueBounds() const { return trueBounds_; }
+private:
+    Rectangle<float> trueBounds_;
     void updateRoutingProps();
     bool pending_;
     void clearRoute();

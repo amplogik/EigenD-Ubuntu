@@ -1352,6 +1352,7 @@ void Wire::calculateRoute()
            }
 
            calculateGrids();
+           trueBounds_=getFullPath().getBounds();
 
         needsRouteCalculation_=false;
     }

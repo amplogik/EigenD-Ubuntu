@@ -6258,6 +6258,13 @@ void MainComponent::listWiresAt(int x, int y)
             }
             if((!w->isHidden()) && showWire)
             {
+                // reject on cached route bounds before building the path
+                const Rectangle<float>& tb=w->getTrueBounds();
+                if(!tb.isEmpty() && !(tb*zoomFactor_).expanded(1.0f).intersects(probe))
+                {
+                    continue;
+                }
+
                 Path p=w->getWirePath();
 
                 if(!p.getBounds().intersects(probe))
