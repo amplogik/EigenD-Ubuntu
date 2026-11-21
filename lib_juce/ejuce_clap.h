@@ -29,6 +29,11 @@ namespace ejuce
     // juce::AudioPluginFormat for CLAP. Call this next to addDefaultFormats().
     // Currently Linux only; a no-op on other platforms.
     EJUCE_DECLSPEC_FUNC(void) add_clap_format(juce::AudioPluginFormatManager &manager);
+
+    // User zoom for a CLAP plugin's GUI (1.0 = correct size for the display).
+    // Applied when the editor is next created. Returns false if p is not a
+    // CLAP plugin (the caller should then use AudioProcessorEditor scaling).
+    EJUCE_DECLSPEC_FUNC(bool) set_plugin_gui_zoom(juce::AudioPluginInstance *p, double zoom);
 }
 
 #endif

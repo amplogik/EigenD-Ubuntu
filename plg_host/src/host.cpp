@@ -356,13 +356,15 @@ namespace
         enum item_id
         {
             id_configure = 4,
-            id_bypass = 5
+            id_bypass = 5,
+            id_zoom = 6
         };
 
         void getAllToolbarItemIds(juce::Array<int> &ids)
         {
             ids.add(id_configure);
             ids.add(id_bypass);
+            ids.add(id_zoom);
         }
 
         void getDefaultItemSet(juce::Array<int> &ids)
@@ -380,6 +382,8 @@ namespace
                     button1_ = new midi::toolbar_button_t(id, "Bypass");
                     update_bypass_button();
                     return button1_;
+                case id_zoom:
+                    return button2_ = new midi::toolbar_button_t(id, "Zoom");
             }
             return 0;
         }
@@ -391,6 +395,9 @@ namespace
             }
             else if (b ==button1_) {
                 toggle_bypass();
+            }
+            else if (b == button2_) {
+                zoom_menu();
             }
         }
 
@@ -409,11 +416,13 @@ namespace
         void mapping();
         void update_bypass_button();
         void toggle_bypass();
+        void zoom_menu();
 
         host::plugin_instance_t::impl_t *controller_;
         host_dialog_t *mapping_dialog_;
         juce::ToolbarButton *button0_;
         juce::ToolbarButton *button1_;
+        juce::ToolbarButton *button2_ = nullptr;
     };
 
     struct host_view_t: juce::DocumentWindow
@@ -864,10 +873,16 @@ struct host::plugin_instance_t::impl_t: midi::params_delegate_t, midi::mapping_o
             juce::AudioPluginInstance *p(pg.value());
             if(p)
             {
-                juce::Component *editor = p->createEditorIfNeeded();
+                bool clap_zoom = ejuce::set_plugin_gui_zoom(p,gui_zoom_);
+                juce::AudioProcessorEditor *editor = p->createEditorIfNeeded();
                 if(0 == editor)
                 {
                     editor = new juce::GenericAudioProcessorEditor(p);
+                }
+                else if(!clap_zoom && gui_zoom_ != 1.0)
+                {
+                    // VST3 etc: JUCE forwards this to the plugin's own scaling
+                    editor->setScaleFactor((float)gui_zoom_);
                 }
                 if(editor != 0)
                 {
@@ -939,12 +954,30 @@ struct host::plugin_instance_t::impl_t: midi::params_delegate_t, midi::mapping_o
         }
     }
 
+    double get_gui_zoom() { return gui_zoom_; }
+
+    void set_gui_zoom(double z)
+    {
+        if(z < 0.25 || z > 4.0 || z == gui_zoom_) return;
+        gui_zoom_ = z;
+        if(window_)
+        {
+            // reopen at the new size once the old window has gone
+            destroy_gui();
+            juce::MessageManager::callAsync([this]() { show_gui(); });
+        }
+    }
+
     void set_bounds(const juce::Rectangle<int>& bounds)
     {
         bounds_.reset(new juce::Rectangle<int>(bounds));
         if(window_)
         {
-            window_->setBounds(*(bounds_.get()));
+            // a fixed-size plugin decides its own size; only restore position
+            if(window_->isResizable())
+                window_->setBounds(*(bounds_.get()));
+            else
+                window_->setTopLeftPosition(bounds_->getX(),bounds_->getY());
         }
     }
 
@@ -1465,6 +1498,7 @@ struct host::plugin_instance_t::impl_t: midi::params_delegate_t, midi::mapping_o
     unsigned idle_time_ticks_;
     bool idling_enabled_;
     float idle_time_sec_;
+    double gui_zoom_ = 1.0;   // user plugin-window zoom, saved with the window state
 
     piw::window_t host_window_;
     std::unique_ptr<juce::Rectangle<int> > bounds_;
@@ -1540,6 +1574,25 @@ void mainpanel_delegate_t::toggle_bypass()
     controller_->set_bypassed(!controller_->is_bypassed());
 }
 
+void mainpanel_delegate_t::zoom_menu()
+{
+    static const int pct[] = { 50, 75, 100, 125, 150, 200 };
+    const int current = (int)(controller_->get_gui_zoom()*100.0+0.5);
+    juce::PopupMenu m;
+    m.addSectionHeader("Plugin window zoom");
+    for(int i=0; i<6; ++i)
+    {
+        juce::String label = juce::String(pct[i]) + "%";
+        if(pct[i] == 100) label += " (default)";
+        m.addItem(i+1,label,true,pct[i]==current);
+    }
+    host::plugin_instance_t::impl_t *c = controller_;
+    m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(button2_),[c](int r)
+    {
+        if(r >= 1 && r <= 6) c->set_gui_zoom(pct[r-1]/100.0);
+    });
+}
+
 mapping_dialog_t::mapping_dialog_t(host::plugin_instance_t::impl_t *controller):
     host_dialog_t(juce::String("Configure:")+controller->title_.c_str(),
             new host_panel_t(new host_param_tabs_t(controller), controller, &controller->mapping_delegate_))
@@ -1555,7 +1608,10 @@ unsigned metronome_input_t::buffer_size()
 host_view_t::host_view_t(const juce::String &name, Component *content, host::plugin_instance_t::impl_t *controller, std::unique_ptr<juce::Rectangle<int> > &bounds):
     DocumentWindow(name,juce::Colours::black,juce::DocumentWindow::closeButton,true), controller_(controller), delegate_(controller_)
 {
-    setResizable(true,true);
+    // fixed-size plugin editors get a fixed-size window
+    auto *ed = dynamic_cast<juce::AudioProcessorEditor *>(content);
+    bool resizable = !ed || ed->isResizable();
+    setResizable(resizable,resizable);
     setUsingNativeTitleBar(true);
     host_panel_t *c = new host_panel_t(content,controller,&delegate_);
     setContentOwned(c,true);
@@ -2061,7 +2117,7 @@ piw::data_t host::plugin_instance_t::get_bounds()
     if(p)
     {
         juce::Rectangle<int> bounds(impl_->get_bounds());
-        int bounds_array[4]={bounds.getX(),bounds.getY(),bounds.getWidth(),bounds.getHeight()};
+        int bounds_array[5]={bounds.getX(),bounds.getY(),bounds.getWidth(),bounds.getHeight(),(int)(impl_->get_gui_zoom()*100.0+0.5)};
         int size=sizeof(bounds_array);
         unsigned char *c;
         piw::data_t d = piw::makeblob(0,size,&c);
@@ -2089,6 +2145,10 @@ void host::plugin_instance_t::set_bounds(const piw::data_t &blob)
     }
 
     int *bounds=(int *)blob.as_blob();
+    if(blob.as_bloblen() >= (int)(5*sizeof(int)) && bounds[4] > 0)
+    {
+        impl_->set_gui_zoom(bounds[4]/100.0);   // older setups have 4 ints: 100%
+    }
     impl_->set_bounds(juce::Rectangle<int>(bounds[0],bounds[1],bounds[2],bounds[3]));
 }
 

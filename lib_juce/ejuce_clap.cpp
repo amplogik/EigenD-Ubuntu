@@ -156,6 +156,7 @@ namespace
         // GUI support (main thread only): the open editor, plus the timers and
         // file descriptors a plugin's X11 GUI asks the host to run for it.
         juce::Component::SafePointer<juce::AudioProcessorEditor> editor_;
+        double editor_scale_ = 1.0;
         struct timer_t: juce::Timer
         {
             clap_handle_t *h; clap_id id;
@@ -213,7 +214,8 @@ namespace
             juce::MessageManager::callAsync([weak,w,hh]()
             {
                 if(auto s = weak.lock())
-                    if(auto *e = s->editor_.getComponent()) e->setSize((int)w,(int)hh);
+                    if(auto *e = s->editor_.getComponent())
+                        e->setSize((int)std::lround(w/s->editor_scale_),(int)std::lround(hh/s->editor_scale_));
             });
             return true;
         }
@@ -331,7 +333,7 @@ namespace
     class clap_editor_t: public juce::AudioProcessorEditor
     {
         public:
-            clap_editor_t(juce::AudioProcessor &p, std::shared_ptr<clap_handle_t> h):
+            clap_editor_t(juce::AudioProcessor &p, std::shared_ptr<clap_handle_t> h, double zoom):
                 juce::AudioProcessorEditor(&p), handle_(h), embed_(pijuce::xembed_create(true,false))
             {
                 addAndMakeVisible(*embed_);
@@ -342,10 +344,23 @@ namespace
                 if(gui_ && gui_->create(pl,CLAP_WINDOW_API_X11,false))
                 {
                     created_ = true;
+
+                    // X11 is a physical-pixel API: tell the plugin the display
+                    // scale. A plugin that accepts it reports physical sizes
+                    // (convert to our logical units); one that refuses scales
+                    // itself and its size is used as-is.
+                    double display = 1.0;
+                    if(auto *d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
+                        display = d->scale;
+                    const double want = display*zoom;
+                    if(gui_->set_scale && (want != 1.0) && gui_->set_scale(pl,want))
+                        scale_ = display;   // sizes now in physical pixels
+
                     gui_->get_size(pl,&w,&hh);
                 }
-                pic::logmsg() << "clap gui: create " << (created_?"ok":"FAILED") << " size " << w << "x" << hh;
-                setSize((int)w,(int)hh);
+                pic::logmsg() << "clap gui: create " << (created_?"ok":"FAILED") << " size " << w << "x" << hh
+                              << " zoom " << zoom << " px/unit " << scale_;
+                setSize((int)std::lround(w/scale_),(int)std::lround(hh/scale_));
                 setResizable(created_ && gui_->can_resize && gui_->can_resize(pl),false);
 
                 if(created_)
@@ -358,7 +373,11 @@ namespace
                     pic::logmsg() << "clap gui: host window " << (unsigned long)win.x11
                                   << " set_parent " << (parented?"ok":"FAILED")
                                   << " show " << (shown?"ok":"FAILED");
-                    if(parented) handle_->editor_ = this;
+                    if(parented)
+                    {
+                        handle_->editor_ = this;
+                        handle_->editor_scale_ = scale_;
+                    }
                 }
             }
 
@@ -379,7 +398,7 @@ namespace
                 embed_->setBounds(getLocalBounds());
                 if(created_ && gui_->can_resize && gui_->can_resize(handle_->plugin_))
                 {
-                    uint32_t w = (uint32_t)getWidth(), hh = (uint32_t)getHeight();
+                    uint32_t w = (uint32_t)std::lround(getWidth()*scale_), hh = (uint32_t)std::lround(getHeight()*scale_);
                     if(gui_->adjust_size) gui_->adjust_size(handle_->plugin_,&w,&hh);
                     gui_->set_size(handle_->plugin_,w,hh);
                 }
@@ -392,6 +411,7 @@ namespace
             std::unique_ptr<juce::Component> embed_;
             const clap_plugin_gui_t *gui_ = nullptr;
             bool created_ = false;
+            double scale_ = 1.0;  // physical pixels per JUCE unit when the plugin accepted set_scale
     };
 
     class clap_instance_t: public juce::AudioPluginInstance
@@ -628,8 +648,10 @@ namespace
             {
                 bool ok = hasEditor();
                 pic::logmsg() << "clap gui: createEditor -> " << (ok?"embedding":"no gui, generic editor");
-                return ok ? new clap_editor_t(*this,handle_) : nullptr;
+                return ok ? new clap_editor_t(*this,handle_,gui_zoom_) : nullptr;
             }
+
+            void set_gui_zoom(double z) { gui_zoom_ = z; }
             bool hasEditor() const override
             {
                 auto gui = handle_->extension<clap_plugin_gui_t>(CLAP_EXT_GUI);
@@ -759,6 +781,7 @@ namespace
             }
 
             std::shared_ptr<clap_handle_t> handle_;
+            double gui_zoom_ = 1.0;
             const clap_plugin_descriptor_t *desc_;
             juce::String path_;
             std::vector<port_t> inputs_, outputs_;
@@ -913,10 +936,25 @@ void ejuce::add_clap_format(juce::AudioPluginFormatManager &manager)
     manager.addFormat(new clap_format_t());
 }
 
+bool ejuce::set_plugin_gui_zoom(juce::AudioPluginInstance *p, double zoom)
+{
+    if(auto *c = dynamic_cast<clap_instance_t *>(p))
+    {
+        c->set_gui_zoom(zoom);
+        return true;
+    }
+    return false;
+}
+
 #else
 
 void ejuce::add_clap_format(juce::AudioPluginFormatManager &)
 {
+}
+
+bool ejuce::set_plugin_gui_zoom(juce::AudioPluginInstance *, double)
+{
+    return false;
 }
 
 #endif
