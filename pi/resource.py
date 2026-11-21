@@ -34,6 +34,20 @@ if os.name != 'nt':
     import fcntl
 
 
+def tag_key(t):
+    """Order release tags within one version number: 'beta-4' < 'beta-5' <
+    'beta-5.1' < 'beta-10'. Returns (stage, numbers); stage '' sorts first."""
+    if not t:
+        return ('', ())
+    stage, _, rest = t.partition('-')
+    nums = []
+    for part in rest.split('.'):
+        try:
+            nums.append(int(part))
+        except ValueError:
+            break
+    return (stage, tuple(nums))
+
 def split_version(n):
     try:
         s1 = n.split('-',1)
@@ -203,7 +217,8 @@ def find_installed_versions(filter=None):
             ver[(v,t)]=r
 
     ver_keys = list(ver.keys())
-    ver_keys.sort(reverse=True)
+    # natural order within a version number (beta-10 after beta-9)
+    ver_keys.sort(key=lambda k: (k[0], tag_key(k[1])), reverse=True)
     vers = [ver[k] for k in ver_keys ]
 
     return vers

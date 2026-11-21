@@ -397,7 +397,15 @@ def filter_upgradeable_version(v,t,r):
     if t and t.startswith('experimental'): return False
 
     if v<first_v: return False
-    if v>=my_v: return False
+    if v>my_v: return False
+    if v==my_v:
+        # Same version number (e.g. 3.0.2): compare the tags, so a 3.0.2-beta-5
+        # user upgrading to beta-5.1 gets their beta-5 setups, not 3.0.1's.
+        # Only within the same stage (beta vs beta); otherwise skip as before.
+        mine = resource.tag_key(my_t)
+        theirs = resource.tag_key(t)
+        if not mine[0] or mine[0] != theirs[0]: return False
+        if theirs >= mine: return False
 
     return True
 
