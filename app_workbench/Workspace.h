@@ -388,6 +388,14 @@ private:
 
     void start_loading();
     void deleteProgressWindow();
+    // Loading is finished when the agents have arrived AND the setup state
+    // (layout) has been applied; the latter usually comes last.
+    void finishLoadingIfReady();
+    bool agentsLoaded_ = false;
+    bool stateApplied_ = false;
+    unsigned loadGeneration_ = 0;
+    bool safetyArmed_ = false;
+    double displayProgress_ = 0;
 
     double progress_;
     double oldProgress_;

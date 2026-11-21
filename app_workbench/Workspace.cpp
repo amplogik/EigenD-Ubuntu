@@ -886,9 +886,13 @@ void Workspace::stateChanged(const char * setup)
    else
    {
         // The agents may all have arrived before this state did (fast
-        // loads); then no further agent updates come to close the window.
+        // loads); then no further agent updates come to mark them loaded.
         backend_->check_progress();
    }
+
+   // the layout is now applied: this is the end of loading
+   stateApplied_=true;
+   finishLoadingIfReady();
 }
 
 void Workspace::instanceName(const std::string& id, const std::string& name)
@@ -1956,6 +1960,15 @@ void Workspace::loaded(float p)
     {
         p=1.0f;
     }
+    if(progressWindow_==0 && p<0.5)
+    {
+        // a new load is starting
+        oldProgress_=0;
+        agentsLoaded_=false;
+        stateApplied_=false;
+        safetyArmed_=false;
+        ++loadGeneration_;
+    }
     if((double)p>=oldProgress_)
     {
         progress_=(double)p;
@@ -1976,6 +1989,9 @@ void Workspace::loaded(float p)
         }
     }
     
+    // agents fill the bar to 90%; the rest is the layout being applied
+    displayProgress_=0.9*progress_;
+
     if(progressWindow_!=0)
     {
         if((progress_-oldProgress_)>0.02)
@@ -1983,10 +1999,49 @@ void Workspace::loaded(float p)
             oldProgress_=progress_;
             MessageManager::getInstance()->runDispatchLoopUntil(40);
         }
+    }
 
-        if (p>=0.99)
+    if (p>=0.99)
+    {
+        agentsLoaded_=true;
+        finishLoadingIfReady();
+    }
+}
+
+void Workspace::finishLoadingIfReady()
+{
+    if(progressWindow_==0)
+    {
+        return;
+    }
+
+    if(agentsLoaded_ && stateApplied_)
+    {
+        deleteProgressWindow();
+        return;
+    }
+
+    if(agentsLoaded_)
+    {
+        displayProgress_=0.95;
+        if(progressBar_!=0)
         {
-            deleteProgressWindow();
+            progressBar_->setTextToDisplay("Arranging workspace...");
+        }
+
+        if(!safetyArmed_)
+        {
+            // never leave the window up if a layout never arrives
+            safetyArmed_=true;
+            const unsigned gen=loadGeneration_;
+            Timer::callAfterDelay(30000,[this,gen]
+            {
+                if(gen==loadGeneration_ && progressWindow_!=0)
+                {
+                    pic::logmsg()<<"progress: layout never arrived, closing";
+                    deleteProgressWindow();
+                }
+            });
         }
     }
 }
@@ -2002,7 +2057,8 @@ void Workspace::start_loading()
 
         pic::logmsg()<<"create Progress window";
         progress_=0;
-        progressBar_=new ProgressBar(progress_);
+        displayProgress_=0;
+        progressBar_=new ProgressBar(displayProgress_);
         progressWindow_=new ResizableWindow("Loading",false);
         Component* tt=dynamic_cast<Component*>(listener_);
 
