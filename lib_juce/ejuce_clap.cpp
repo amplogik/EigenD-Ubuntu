@@ -208,14 +208,17 @@ namespace
         // --- host extensions --------------------------------------------
 
         static void gui_resize_hints_changed(const clap_host_t *) {}
-        static bool gui_request_resize(const clap_host_t *h, uint32_t w, uint32_t hh)
+        // Treat request_resize as "my size changed" and re-query get_size:
+        // some plugins (Dexed's clap-juce-extensions build) report the size
+        // here with the scale applied twice, while get_size is correct.
+        std::function<void()> refresh_editor_size_;
+        static bool gui_request_resize(const clap_host_t *h, uint32_t, uint32_t)
         {
             std::weak_ptr<clap_handle_t> weak = self(h)->weak_from_this();
-            juce::MessageManager::callAsync([weak,w,hh]()
+            juce::MessageManager::callAsync([weak]()
             {
                 if(auto s = weak.lock())
-                    if(auto *e = s->editor_.getComponent())
-                        e->setSize((int)std::lround(w/s->editor_scale_),(int)std::lround(hh/s->editor_scale_));
+                    if(s->editor_.getComponent() && s->refresh_editor_size_) s->refresh_editor_size_();
             });
             return true;
         }
@@ -377,6 +380,12 @@ namespace
                     {
                         handle_->editor_ = this;
                         handle_->editor_scale_ = scale_;
+                        handle_->refresh_editor_size_ = [this]()
+                        {
+                            uint32_t w = 0, hh = 0;
+                            if(gui_->get_size(handle_->plugin_,&w,&hh) && w && hh)
+                                setSize((int)std::lround(w/scale_),(int)std::lround(hh/scale_));
+                        };
                     }
                 }
             }
@@ -391,6 +400,7 @@ namespace
                 }
                 pijuce::xembed_remove_client(embed_.get());
                 handle_->editor_ = nullptr;
+                handle_->refresh_editor_size_ = nullptr;
             }
 
             void resized() override
