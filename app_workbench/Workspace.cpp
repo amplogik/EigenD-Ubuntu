@@ -1962,10 +1962,11 @@ void Workspace::loaded(float p)
     }
     if(progressWindow_==0 && p<0.5)
     {
-        // a new load is starting
+        // a new load (or the index growing past its first entry) is
+        // starting. stateApplied_ is NOT reset here: the setup state can
+        // arrive before the agents, and only stateChanged() sets it.
         oldProgress_=0;
         agentsLoaded_=false;
-        stateApplied_=false;
         safetyArmed_=false;
         ++loadGeneration_;
     }
