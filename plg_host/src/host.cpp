@@ -2118,6 +2118,8 @@ piw::data_t host::plugin_instance_t::get_bounds()
     {
         juce::Rectangle<int> bounds(impl_->get_bounds());
         int bounds_array[5]={bounds.getX(),bounds.getY(),bounds.getWidth(),bounds.getHeight(),(int)(impl_->get_gui_zoom()*100.0+0.5)};
+        pic::logmsg() << "window state save: " << bounds_array[0] << "," << bounds_array[1] << " "
+                      << bounds_array[2] << "x" << bounds_array[3] << " zoom " << bounds_array[4] << "%";
         int size=sizeof(bounds_array);
         unsigned char *c;
         piw::data_t d = piw::makeblob(0,size,&c);
@@ -2145,6 +2147,9 @@ void host::plugin_instance_t::set_bounds(const piw::data_t &blob)
     }
 
     int *bounds=(int *)blob.as_blob();
+    pic::logmsg() << "window state load: " << blob.as_bloblen() << " bytes"
+                  << (blob.as_bloblen() >= (int)(5*sizeof(int)) ? " zoom " : " (no zoom)")
+                  << (blob.as_bloblen() >= (int)(5*sizeof(int)) ? bounds[4] : 0);
     if(blob.as_bloblen() >= (int)(5*sizeof(int)) && bounds[4] > 0)
     {
         impl_->set_gui_zoom(bounds[4]/100.0);   // older setups have 4 ints: 100%

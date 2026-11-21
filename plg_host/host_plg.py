@@ -621,11 +621,12 @@ class Agent(agent.Agent):
 
                 if desc_checked and self.host.open(desc_checked):
                     self.host.set_state(state)
-                    self.host.set_showing(show)
-                    self.host.set_mapping(mapping)
-
+                    # window state (position, zoom) before showing, so the
+                    # window opens at its saved zoom instead of reopening
                     if bounds:
                         self.host.set_bounds(bounds)
+                    self.host.set_showing(show)
+                    self.host.set_mapping(mapping)
 
                     self.__set_title()
 
