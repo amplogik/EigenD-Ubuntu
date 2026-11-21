@@ -83,7 +83,7 @@ class InfoPanel(wx.Window):
         self.__agent.reset2(1,1)
    
     def onMotion(self,evt):
-        mPos=evt.GetPositionTuple()
+        mPos=evt.GetPosition()
         
         for v in self.__truncatedValues:
             if mPos[0]>v[0] and mPos[0]<v[1] and mPos[1]>v[2] and mPos[1]<v[3]:
@@ -101,7 +101,7 @@ class InfoPanel(wx.Window):
         self.scroll_both(1,v,mouse=True)
 
     def onPaint(self,evt):
-        dc=wx.AutoBufferedPaintDC(self)
+        dc=wx.BufferedPaintDC(self)
     #dc=self.__getClientDC()
         self.doPaint(dc)
         evt.Skip()
@@ -119,7 +119,7 @@ class InfoPanel(wx.Window):
             dc=wx.BufferedDC(wx.ClientDC(self))
             dc.Clear()
 
-        font=wx.SystemSettings_GetFont(wx.SYS_DEFAULT_GUI_FONT)
+        font=wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
         font.SetPointSize(11)
         dc.SetFont(font)
 

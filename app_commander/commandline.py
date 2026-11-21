@@ -447,7 +447,7 @@ class StaffPanel(wx.Window):
 
 
     def OnPaint(self,evt):
-        dc=wx.AutoBufferedPaintDC(self)
+        dc=wx.BufferedPaintDC(self)
         dc.SetFont(self.font)
         dc.Clear()
         self.draw(dc)
@@ -521,7 +521,7 @@ class StaffPanel(wx.Window):
 class CommandPanel(wx.Window):
     def __init__(self,parent,size,agent,style=wx.BORDER_NONE):
         wx.Window.__init__(self,parent,-1,size=size,style=style|wx.WANTS_CHARS)
-        self.SetCursor(wx.StockCursor(wx.CURSOR_IBEAM))
+        self.SetCursor(wx.Cursor(wx.CURSOR_IBEAM))
         self.SetBackgroundColour(colours.commandlineBackground)
         self.Bind(wx.EVT_PAINT,self.OnPaint)
         self.Bind(wx.EVT_LEFT_DOWN,self.onLeftDown)
@@ -616,7 +616,7 @@ class CommandPanel(wx.Window):
 
         dc=wx.ClientDC(self)
         dc.SetFont(self.font)
-        mPos=evt.GetPositionTuple()
+        mPos=evt.GetPosition()
         for line in self.lines:
             line.selecting=False
 
@@ -648,7 +648,7 @@ class CommandPanel(wx.Window):
     def onLeftUp(self,evt):
         self.selectionStarted=False
         self.selectingLine=0
-        mPos=evt.GetPositionTuple()
+        mPos=evt.GetPosition()
 
     def isSelecting(self):
         count=0
@@ -673,7 +673,7 @@ class CommandPanel(wx.Window):
 
             dc=wx.ClientDC(self)
             dc.SetFont(self.font)
-            mPos=evt.GetPositionTuple()
+            mPos=evt.GetPosition()
             r=self.displayManager.mPos2Index(mPos,dc) 
 
             if r:
@@ -863,7 +863,7 @@ class CommandPanel(wx.Window):
         self.__borderDrawing(dc)
 
     def OnPaint(self,evt):
-        dc=wx.AutoBufferedPaintDC(self)
+        dc=wx.BufferedPaintDC(self)
         dc.SetFont(self.font)
         self.drawText(dc)
         evt.Skip()
@@ -888,7 +888,7 @@ class CommandPanel(wx.Window):
              keycode = evt.GetUnicodeKey()
              if keycode <= 127:
                  keycode = evt.GetKeyCode()
-             keyname = unichr(evt.GetUnicodeKey())
+             keyname = chr(evt.GetUnicodeKey())
                 
         elif keycode < 256:
                 keyname = chr(keycode)

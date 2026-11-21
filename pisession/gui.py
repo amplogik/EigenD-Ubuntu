@@ -20,6 +20,47 @@
 
 import piw, piagent, wx, picross
 import wx.lib.newevent
+
+# --- wxPython 4 ("Phoenix") compatibility for Python 2-era drawing code ----
+# Under Python 2, '/' on ints gave ints; the browser/commander drawing code
+# relies on that. wxPython >= 4.1 rejects floats for coordinates and sizes.
+# Round floats to ints at the wx boundary instead of auditing every '/'.
+def _wx_ints(args):
+    return tuple(int(round(a)) if isinstance(a, float) else a for a in args)
+
+def _wx_wrap_method(cls, name):
+    orig = getattr(cls, name, None)
+    if orig is None or getattr(orig, '_wx_int_wrapped', False):
+        return
+    def wrapped(self, *args, **kwds):
+        return orig(self, *_wx_ints(args), **kwds)
+    wrapped._wx_int_wrapped = True
+    setattr(cls, name, wrapped)
+
+for _n in ('DrawLine', 'DrawText', 'DrawRectangle', 'DrawRoundedRectangle',
+           'DrawBitmap', 'DrawCircle', 'DrawEllipse', 'DrawPoint',
+           'SetClippingRegion', 'Blit', 'SetDeviceOrigin', 'DrawRotatedText'):
+    _wx_wrap_method(wx.DC, _n)
+
+for _n in ('SetScrollbar', 'SetScrollPos', 'Scroll', 'SetSize', 'SetClientSize',
+           'SetMinSize', 'SetMaxSize', 'SetVirtualSize', 'Move', 'SetPosition',
+           'RefreshRect', 'SetScrollRate'):
+    _wx_wrap_method(wx.Window, _n)
+
+def _wx_int_subclass(base):
+    if getattr(base, '_wx_int_subclass', False):
+        return base
+    class _Int(base):
+        _wx_int_subclass = True
+        def __init__(self, *args, **kwds):
+            base.__init__(self, *_wx_ints(args), **kwds)
+    _Int.__name__ = base.__name__
+    _Int.__qualname__ = base.__qualname__
+    return _Int
+
+for _n in ('Rect', 'Point', 'Size', 'Pen', 'Font'):
+    setattr(wx, _n, _wx_int_subclass(getattr(wx, _n)))
+# ----------------------------------------------------------------------------
 import sys
 
 from pi import utils

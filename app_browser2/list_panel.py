@@ -41,7 +41,7 @@ class ListPanel(wx.Window):
     # XXX
         #self.font=wx.Font(13,wx.FONTFAMILY_MODERN,wx.FONTSTYLE_NORMAL,weight=wx.FONTWEIGHT_LIGHT)
 
-        self.font=wx.SystemSettings_GetFont(wx.SYS_DEFAULT_GUI_FONT)
+        self.font=wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
         self.font.SetPointSize(13)
 
         self.mainFrame=parent
@@ -93,7 +93,7 @@ class ListPanel(wx.Window):
 
     def onLeftUp(self,evt):
         if self.fl:
-            mPos=evt.GetPositionTuple()
+            mPos=evt.GetPosition()
             y=mPos[1]
             self.mouseSelect(y)
             selection=self.offset+int(y/self.fl.lineSpacing)
@@ -102,7 +102,7 @@ class ListPanel(wx.Window):
        
     def onMotion(self,evt):
         if self.fl:
-            mPos=evt.GetPositionTuple()
+            mPos=evt.GetPosition()
             self.mouseSelect(mPos[1])
             for v in self.truncatedValues:
                 if mPos[0]>v[0] and mPos[0]<v[1] and mPos[1]>v[2] and mPos[1]<v[3]:
@@ -178,7 +178,7 @@ class ListPanel(wx.Window):
 #        self.__agent.reset1(1,v)
  
     def onPaint(self,evt):
-        bdc=wx.AutoBufferedPaintDC(self)
+        bdc=wx.BufferedPaintDC(self)
         bdc.Clear()
         brush=bdc.GetBrush()
         brush.SetColour(colours.borderGradient1)

@@ -39,7 +39,7 @@ class PathPanel(wx.Window):
         self.aux_oldv=1
         self.aux_oldh=-1
 #        self.font=wx.Font(13,wx.FONTFAMILY_MODERN,wx.FONTSTYLE_NORMAL,weight=wx.FONTWEIGHT_LIGHT)
-        self.font=wx.SystemSettings_GetFont(wx.SYS_DEFAULT_GUI_FONT)
+        self.font=wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
         self.font.SetPointSize(11)
 
 
@@ -67,7 +67,7 @@ class PathPanel(wx.Window):
         pass
 
     def onLeftUp(self,evt):
-        mPos=evt.GetPositionTuple()
+        mPos=evt.GetPosition()
         for pb in self.pathButtons:
             x0,x1,c=pb.getLimits()
             if mPos[0]<x1 and mPos[0]>=x0:
@@ -76,7 +76,7 @@ class PathPanel(wx.Window):
                 self.__agent.onTap3() 
     
     def onMotion(self,evt):
-        mPos=evt.GetPositionTuple()
+        mPos=evt.GetPosition()
         for pb in self.pathButtons:
             x0,x1,c=pb.getLimits()
             if mPos[0]<x1 and mPos[0]>=x0:
@@ -86,7 +86,7 @@ class PathPanel(wx.Window):
                     self.__scrolldraw()
  
     def onPaint(self,evt):
-        dc=wx.AutoBufferedPaintDC(self)
+        dc=wx.BufferedPaintDC(self)
         self.doPaint(dc)
         evt.Skip()
 
