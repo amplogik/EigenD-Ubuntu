@@ -6044,15 +6044,51 @@ void MainComponent::zoomChildren()
         dragPin_->doZoom(zoomFactor_);
     }
 
-    // Recalculate wire grid maps when zoom changes
+    // Recalculate wire grid maps when zoom changes (deferred, time-sliced)
+    scheduleWireRegrid();
+}
+
+void MainComponent::scheduleWireRegrid()
+{
+    // A newer zoom supersedes any re-route still in progress.
+    regridPending_.clear();
+    regridPending_.reserve(wires_.size());
     for (std::map<String,Wire*>::iterator iter=wires_.begin();iter!=wires_.end();iter++)
     {
-        Wire* w=iter->second;
-        if (w!=0)
+        regridPending_.push_back(iter->first);
+    }
+
+    if(!regridScheduled_)
+    {
+        regridScheduled_=true;
+        Component::SafePointer<MainComponent> self(this);
+        Timer::callAfterDelay(150,[self]{ if(self!=0) self->regridStep(); });
+    }
+}
+
+void MainComponent::regridStep()
+{
+    // ~20 ms of work per slice, then yield to the message loop.
+    const double deadline=Time::getMillisecondCounterHiRes()+20.0;
+    while(!regridPending_.empty() && Time::getMillisecondCounterHiRes()<deadline)
+    {
+        String id=regridPending_.back();
+        regridPending_.pop_back();
+        std::map<String,Wire*>::iterator iter=wires_.find(id);  // may have been deleted meanwhile
+        if(iter!=wires_.end() && iter->second!=0)
         {
-            w->recalculateGrids();
+            iter->second->recalculateGrids();
         }
     }
+
+    if(regridPending_.empty())
+    {
+        regridScheduled_=false;
+        return;
+    }
+
+    Component::SafePointer<MainComponent> self(this);
+    Timer::callAfterDelay(1,[self]{ if(self!=0) self->regridStep(); });
 }
 
 float MainComponent::getZoomFactor()

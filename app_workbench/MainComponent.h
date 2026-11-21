@@ -710,6 +710,12 @@ private:
     bool animated_;
     bool showOutlines_;
     void zoomChildren();
+    // Re-route wires after a zoom in time-sliced batches on the message
+    // thread, so a zoom on a large setup doesn't block input for ~30 s.
+    void scheduleWireRegrid();
+    void regridStep();
+    std::vector<String> regridPending_;
+    bool regridScheduled_ = false;
     bool wireDragStarted_;
     Box* candidateWiringBox_;
     Movable* candidateMovable_;
