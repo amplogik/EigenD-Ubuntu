@@ -86,6 +86,7 @@ stealing" and is gone with the above.
 | `f9fbeadb` | all | **Ours.** Workbench's epython startup command was snprintf'd into a 256-byte buffer (we shrank it from 4096 in the Ubuntu port). An installed root like `/usr/local/pi/release-3.0.2-beta-5` makes it 266 bytes, so the string was truncated and Workbench died with `SyntaxError`. Only bites installed packages, not the build tree. Upstream's 4096 is fine; noting it in case you took our port. |
 | `c7381be0` | all | `host_plg.py` `chunker()`: `zlib.compress(str)` raises on Python 3, so **plugin state and window state were never saved**, with a traceback on every setup save. `std::string` crosses the bridge as Latin-1, so encode before compressing and decode each chunk (mirrors `get_blob`). |
 | `759098db` | Linux | Plugin RUNPATH `$ORIGIN/../bin` is one level short for `plugins/<vendor>/plg_x/`, so 18 `controller` agents and the convolver failed with `ImportError: libpilo.so` unless `LD_LIBRARY_PATH` was set. Adds `$ORIGIN/../../../bin`. |
+| `531ec0e5` | all | `filter_upgradeable_version()` compared only the numeric version, so within 3.0.2 every other beta was "not older" and setup import on upgrade fell back to 3.0.1. Now compares tags (`resource.tag_key`) within the same stage, and sorts version dirs naturally (beta-10 after beta-9). |
 | `2f106b4b` (part) | all | `tools/SConstruct`: skip hidden directories when collecting `SConscript`s. A git worktree under `.claude/` was being built twice (library-defined-twice assert). |
 
 ## 5. Plugin host additions (ours; take if useful)
