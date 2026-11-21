@@ -79,20 +79,55 @@ namespace
             bool f_;
     };
 
+    // One PyThreadState per OS thread, created on first use and then kept.
+    // Python 3.14 measures the C stack the first time a thread state is
+    // attached (_Py_InitializeRecursionLimits -> pthread_getattr_np, which on
+    // the main thread parses /proc/self/maps). Creating a fresh state for
+    // every C->Python call cost ~0.1 ms per call in Workbench (517 maps lines)
+    // and pinned its UI thread while agents loaded; reuse costs ~0.04 us.
+    struct c2p_tstate_t
+    {
+        PyThreadState *ts = 0;
+        PyInterpreterState *interp = 0;
+        int depth = 0;
+    };
+    static thread_local c2p_tstate_t c2p_tstate_;
+
     // locks python and unlocks it on dtor
     class lock_c2p
     {
         public:
             lock_c2p(PyInterpreterState *interp, bool fake=false): 
                 t_(0), 
-                f_(fake)
+                f_(fake),
+                reused_(false)
             {
                 if(!f_)
                 {
                     if(!pip_usegil)
                     {
-                        t_=PyThreadState_New(interp);
-                        PyEval_AcquireThread(t_);
+                        c2p_tstate_t &s = c2p_tstate_;
+
+                        if(s.ts && s.interp!=interp)
+                        {
+                            // different interpreter: old per-call behaviour
+                            t_=PyThreadState_New(interp);
+                            PyEval_AcquireThread(t_);
+                            return;
+                        }
+
+                        if(!s.ts)
+                        {
+                            s.ts=PyThreadState_New(interp);
+                            s.interp=interp;
+                        }
+
+                        if(s.depth++==0)
+                        {
+                            PyEval_AcquireThread(s.ts);
+                        }
+
+                        reused_=true;
                         return;
                     }
                 }
@@ -102,7 +137,19 @@ namespace
             {
                 if(!f_)
                 {
-                    if(!pip_usegil)
+                    if(reused_)
+                    {
+                        c2p_tstate_t &s = c2p_tstate_;
+
+                        if(--s.depth==0)
+                        {
+                            PyEval_ReleaseThread(s.ts);
+                        }
+
+                        return;
+                    }
+
+                    if(t_)
                     {
                         PyEval_ReleaseThread(t_);
                         PyThreadState_Delete(t_);
@@ -114,6 +161,7 @@ namespace
         private:
             PyThreadState *t_;
             bool f_;
+            bool reused_;
     };
 
     // relocks python inside an unlock_p2c and unlocks afterwards
