@@ -30,11 +30,15 @@
  */
 
 #include "ejuce_clap.h"
+#include "pijuce_linux_glue.h"
+#include <picross/pic_log.h>
 
 #if JUCE_LINUX
 
 #include <clap/clap.h>
 #include <dlfcn.h>
+#include <poll.h>
+#include <set>
 #include <atomic>
 #include <map>
 #include <memory>
@@ -149,6 +153,25 @@ namespace
         const clap_plugin_t *plugin_ = nullptr;
         std::atomic<bool> callback_pending_ { false };
 
+        // GUI support (main thread only): the open editor, plus the timers and
+        // file descriptors a plugin's X11 GUI asks the host to run for it.
+        juce::Component::SafePointer<juce::AudioProcessorEditor> editor_;
+        struct timer_t: juce::Timer
+        {
+            clap_handle_t *h; clap_id id;
+            timer_t(clap_handle_t *h_, clap_id id_): h(h_), id(id_) {}
+            void timerCallback() override
+            {
+                static int logged = 0;
+                if(logged < 5) { ++logged; pic::logmsg() << "clap host: timer " << id << " fired"; }
+                auto ext = h->extension<clap_plugin_timer_support_t>(CLAP_EXT_TIMER_SUPPORT);
+                if(ext && ext->on_timer) ext->on_timer(h->plugin_,id);
+            }
+        };
+        std::map<clap_id,std::unique_ptr<timer_t>> timers_;
+        clap_id next_timer_ = 1;
+        std::set<int> fds_;
+
         clap_handle_t()
         {
             host_.clap_version = CLAP_VERSION;
@@ -165,6 +188,9 @@ namespace
 
         ~clap_handle_t()
         {
+            timers_.clear();
+            for(int fd: fds_) pijuce::unregister_fd(fd);
+            fds_.clear();
             if(plugin_) plugin_->destroy(plugin_);
         }
 
@@ -178,8 +204,88 @@ namespace
             return (clap_handle_t *)h->host_data;
         }
 
-        static const void *get_extension(const clap_host_t *, const char *)
+        // --- host extensions --------------------------------------------
+
+        static void gui_resize_hints_changed(const clap_host_t *) {}
+        static bool gui_request_resize(const clap_host_t *h, uint32_t w, uint32_t hh)
         {
+            std::weak_ptr<clap_handle_t> weak = self(h)->weak_from_this();
+            juce::MessageManager::callAsync([weak,w,hh]()
+            {
+                if(auto s = weak.lock())
+                    if(auto *e = s->editor_.getComponent()) e->setSize((int)w,(int)hh);
+            });
+            return true;
+        }
+        static bool gui_request_show(const clap_host_t *) { return false; }
+        static bool gui_request_hide(const clap_host_t *) { return false; }
+        static void gui_closed(const clap_host_t *, bool) {}
+
+        static bool timer_register(const clap_host_t *h, uint32_t period_ms, clap_id *id)
+        {
+            clap_handle_t *s = self(h);
+            clap_id i = s->next_timer_++;
+            pic::logmsg() << "clap host: register_timer " << period_ms << "ms -> id " << i;
+            auto t = std::make_unique<timer_t>(s,i);
+            t->startTimer((int)std::max<uint32_t>(period_ms,1));
+            s->timers_[i] = std::move(t);
+            if(id) *id = i;
+            return true;
+        }
+        static bool timer_unregister(const clap_host_t *h, clap_id id)
+        {
+            return self(h)->timers_.erase(id) > 0;
+        }
+
+        static short poll_mask(clap_posix_fd_flags_t f)
+        {
+            short m = 0;
+            if(f & CLAP_POSIX_FD_READ) m |= POLLIN;
+            if(f & CLAP_POSIX_FD_WRITE) m |= POLLOUT;
+            if(f & CLAP_POSIX_FD_ERROR) m |= POLLERR;
+            return m ? m : POLLIN;
+        }
+        static bool fd_register(const clap_host_t *h, int fd, clap_posix_fd_flags_t flags)
+        {
+            clap_handle_t *s = self(h);
+            pic::logmsg() << "clap host: register_fd " << fd << " flags " << flags;
+            std::weak_ptr<clap_handle_t> weak = s->weak_from_this();
+            pijuce::register_fd(fd,[weak,flags](int f)
+            {
+                static int logged = 0;
+                if(logged < 5) { ++logged; pic::logmsg() << "clap host: fd " << f << " ready"; }
+                if(auto s = weak.lock())
+                {
+                    auto ext = s->extension<clap_plugin_posix_fd_support_t>(CLAP_EXT_POSIX_FD_SUPPORT);
+                    if(ext && ext->on_fd) ext->on_fd(s->plugin_,f,flags);
+                }
+            },poll_mask(flags));
+            s->fds_.insert(fd);
+            return true;
+        }
+        static bool fd_modify(const clap_host_t *h, int fd, clap_posix_fd_flags_t flags)
+        {
+            pijuce::unregister_fd(fd);
+            self(h)->fds_.erase(fd);
+            return fd_register(h,fd,flags);
+        }
+        static bool fd_unregister(const clap_host_t *h, int fd)
+        {
+            pijuce::unregister_fd(fd);
+            return self(h)->fds_.erase(fd) > 0;
+        }
+
+        static const void *get_extension(const clap_host_t *, const char *id)
+        {
+            pic::logmsg() << "clap host: plugin asked for extension " << id;
+            static const clap_host_gui_t gui = { gui_resize_hints_changed, gui_request_resize,
+                                                 gui_request_show, gui_request_hide, gui_closed };
+            static const clap_host_timer_support_t timer = { timer_register, timer_unregister };
+            static const clap_host_posix_fd_support_t fd = { fd_register, fd_modify, fd_unregister };
+
+            if(!strcmp(id,CLAP_EXT_GUI)) return &gui;
+            if(!strcmp(id,CLAP_EXT_TIMER_SUPPORT)) return &timer;
+            if(!strcmp(id,CLAP_EXT_POSIX_FD_SUPPORT)) return &fd;
             return nullptr;
         }
 
@@ -219,6 +325,73 @@ namespace
     {
         juce::String name;
         uint32_t channels;
+    };
+
+    // Embeds the plugin's own X11 GUI in a JUCE window via XEmbed.
+    class clap_editor_t: public juce::AudioProcessorEditor
+    {
+        public:
+            clap_editor_t(juce::AudioProcessor &p, std::shared_ptr<clap_handle_t> h):
+                juce::AudioProcessorEditor(&p), handle_(h), embed_(pijuce::xembed_create(true,false))
+            {
+                addAndMakeVisible(*embed_);
+                gui_ = handle_->extension<clap_plugin_gui_t>(CLAP_EXT_GUI);
+                const clap_plugin_t *pl = handle_->plugin_;
+
+                uint32_t w = 400, hh = 300;
+                if(gui_ && gui_->create(pl,CLAP_WINDOW_API_X11,false))
+                {
+                    created_ = true;
+                    gui_->get_size(pl,&w,&hh);
+                }
+                pic::logmsg() << "clap gui: create " << (created_?"ok":"FAILED") << " size " << w << "x" << hh;
+                setSize((int)w,(int)hh);
+                setResizable(created_ && gui_->can_resize && gui_->can_resize(pl),false);
+
+                if(created_)
+                {
+                    clap_window_t win;
+                    win.api = CLAP_WINDOW_API_X11;
+                    win.x11 = pijuce::xembed_host_window(embed_.get());
+                    bool parented = gui_->set_parent(pl,&win);
+                    bool shown = parented && gui_->show(pl);
+                    pic::logmsg() << "clap gui: host window " << (unsigned long)win.x11
+                                  << " set_parent " << (parented?"ok":"FAILED")
+                                  << " show " << (shown?"ok":"FAILED");
+                    if(parented) handle_->editor_ = this;
+                }
+            }
+
+            ~clap_editor_t() override
+            {
+                if(created_)
+                {
+                    const clap_plugin_t *pl = handle_->plugin_;
+                    gui_->hide(pl);
+                    gui_->destroy(pl);
+                }
+                pijuce::xembed_remove_client(embed_.get());
+                handle_->editor_ = nullptr;
+            }
+
+            void resized() override
+            {
+                embed_->setBounds(getLocalBounds());
+                if(created_ && gui_->can_resize && gui_->can_resize(handle_->plugin_))
+                {
+                    uint32_t w = (uint32_t)getWidth(), hh = (uint32_t)getHeight();
+                    if(gui_->adjust_size) gui_->adjust_size(handle_->plugin_,&w,&hh);
+                    gui_->set_size(handle_->plugin_,w,hh);
+                }
+            }
+
+            void paint(juce::Graphics &g) override { g.fillAll(juce::Colours::black); }
+
+        private:
+            std::shared_ptr<clap_handle_t> handle_;
+            std::unique_ptr<juce::Component> embed_;
+            const clap_plugin_gui_t *gui_ = nullptr;
+            bool created_ = false;
     };
 
     class clap_instance_t: public juce::AudioPluginInstance
@@ -451,8 +624,19 @@ namespace
             bool acceptsMidi() const override { return note_dialect_ != 0; }
             bool producesMidi() const override { return false; }
 
-            juce::AudioProcessorEditor *createEditor() override { return nullptr; }
-            bool hasEditor() const override { return false; }
+            juce::AudioProcessorEditor *createEditor() override
+            {
+                bool ok = hasEditor();
+                pic::logmsg() << "clap gui: createEditor -> " << (ok?"embedding":"no gui, generic editor");
+                return ok ? new clap_editor_t(*this,handle_) : nullptr;
+            }
+            bool hasEditor() const override
+            {
+                auto gui = handle_->extension<clap_plugin_gui_t>(CLAP_EXT_GUI);
+                bool x11 = gui && gui->is_api_supported(handle_->plugin_,CLAP_WINDOW_API_X11,false);
+                pic::logmsg() << "clap gui: ext " << (gui?"present":"MISSING") << " x11 " << (x11?"yes":"no");
+                return x11;
+            }
 
             int getNumPrograms() override { return 1; }
             int getCurrentProgram() override { return 0; }

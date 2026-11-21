@@ -50,16 +50,23 @@ Export(master_env=master_env)
 
 # Collect all directories with SConscript for potential targets
 sconscript_dirs = []
-for root,dirs,files in os.walk('.'):
+def source_walk():
+    # skip hidden directories (.git, .claude/worktrees, editor dirs): a git
+    # worktree inside the repo would otherwise be built a second time
+    for root,dirs,files in os.walk('.'):
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
+        yield root,dirs,files
+
+for root,dirs,files in source_walk():
     if 'SConscript' in files:
         sconscript_dirs.append(root)
 
-for root,dirs,files in os.walk('.'):
+for root,dirs,files in source_walk():
     if 'SConscript.first' in files:
         env=master_env.Clone()
         SConscript(join(master_env.subst('$TMPDIR'),root,'SConscript.first'))
 
-for root,dirs,files in os.walk('.'):
+for root,dirs,files in source_walk():
     if 'SConscript' in files:
         env=master_env.Clone()
         SConscript(join(master_env.subst('$TMPDIR'),root,'SConscript'), exports='env')
