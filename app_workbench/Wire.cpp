@@ -1409,12 +1409,16 @@ void Wire::recalculateGrids()
 
 void Wire::clearGridMap()
 {
-    mc_->clearGridMap(this);
+    mc_->clearGridMap(this,gridSquares_);
+    gridSquares_.clear();
 }
 
 void Wire::updateGridMap(int gs)
 {
-    mc_->updateGridMap(gs,this);
+    if(gridSquares_.insert(gs).second)
+    {
+        mc_->updateGridMap(gs,this);
+    }
 }
 
 bool Wire::shouldNotBeLoaded()

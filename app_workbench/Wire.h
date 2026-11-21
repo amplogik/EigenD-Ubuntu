@@ -174,6 +174,9 @@ private:
     Path getOldWirePath();
     void clearGridMap();
     void updateGridMap(int);
+    // grid squares this wire is listed in, so clearGridMap() only touches
+    // those instead of every square (zoom re-routes every wire)
+    std::set<int> gridSquares_;
     void updateRoutingProps();
     bool pending_;
     void clearRoute();

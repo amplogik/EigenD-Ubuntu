@@ -520,6 +520,7 @@ public:
     void refreshProperties(String id);
     int getGridNumber(int,int);
     void clearGridMap(Wire*);
+    void clearGridMap(Wire*, const std::set<int>&);
     void updateGridMap(int, Wire*);
     bool hasForegroundWires();
     bool hasForegroundedItem();

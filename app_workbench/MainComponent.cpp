@@ -470,6 +470,18 @@ int MainComponent::getGridNumber(int x, int y)
     return (gy-1)*nx_+gx;
 }
 
+void MainComponent::clearGridMap(Wire* w, const std::set<int>& squares)
+{
+    for (std::set<int>::const_iterator s=squares.begin();s!=squares.end();++s)
+    {
+        std::map<int,std::list<Wire*> >::iterator iter=gridSquareMap_.find(*s);
+        if(iter!=gridSquareMap_.end())
+        {
+            (iter->second).remove(w);
+        }
+    }
+}
+
 void MainComponent::clearGridMap(Wire* w)
 {
     for (std::map<int,std::list<Wire*> >::iterator iter=gridSquareMap_.begin();iter!=gridSquareMap_.end();iter++)
