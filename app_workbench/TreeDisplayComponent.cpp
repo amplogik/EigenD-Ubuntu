@@ -162,6 +162,11 @@ void TreeDisplayComponent::cinfo_updated(String path,const std::set<std::string>
     }
 }
 
+void TreeDisplayComponent::clearSelection()
+{
+    treeView_->clearSelectedItems();
+}
+
 void TreeDisplayComponent::parentSizeChanged()
 {
     if(ready_)

@@ -112,7 +112,9 @@ class PluginBrowser(atom.Atom):
             global_plugin_list = PluginList()
         self.__plugin_list = global_plugin_list
 
-        atom.Atom.__init__(self,names='plugin',protocols='virtual browse')
+        # 'clearable' tells Workbench to offer a Clear button, which
+        # activates the root path with an empty cookie (see rpc_activated)
+        atom.Atom.__init__(self,names='plugin',protocols='virtual browse clearable')
 
         self.__agent = agent
         self.__timestamp = piw.tsd_time()
@@ -154,6 +156,9 @@ class PluginBrowser(atom.Atom):
         (path,selected)=logic.parse_clause(arg)
         if len(path)==1:
             self.__agent.set_plugin(selected)
+        elif len(path)==0 and not selected:
+            # empty selection at the root: unload the plugin
+            self.__agent.clear_plugin()
         return logic.render_term(('',''))
 
     def __update(self):
@@ -537,8 +542,7 @@ class Agent(agent.Agent):
         return piasync.success(errors.doesnt_exist('plugin "%s"'%id,'open'))
 
     def __close(self,*arg):
-        self.host.close()
-        self.__update_labels()
+        self.clear_plugin()
         return action.nosync_return()
 
     def __show(self,*arg):
@@ -594,6 +598,16 @@ class Agent(agent.Agent):
                 return True
         return False
 
+    def clear_plugin(self):
+        # unload the plugin, leaving the audio unit empty and bypassed (audio
+        # passes straight through) as a freshly created one is. close() also
+        # stores an empty description, so a saved setup restores it empty.
+        print('clear_plugin')
+        self.__unshow()
+        self.host.close()
+        self.__bypass()
+        self.__update_labels()
+
     def __plugin_state_loaded(self,state,desc_xml,show,bypassed,mapping,bounds):
         if desc_xml:
             desc = host_native.create_plugin_description(desc_xml)
@@ -632,7 +646,7 @@ class Agent(agent.Agent):
         self.host.set_title(t)
 
     def get_title(self):
-        if self.host is None:return
+        if self.host is None or not self.host.has_plugin(): return
         desc = self.host.get_description()
         t = '%s %s' % (desc.name(),desc.format())
         return t 

@@ -83,6 +83,10 @@ BrowseEditor::BrowseEditor (Atom* atom, String name)
     treeContent_=0;
     textEditor->setVisible(false);
     browseButton->setVisible(false);
+    addChildComponent (clearButton_ = new TextButton ("clearbutton"));
+    clearButton_->setButtonText (TRANS("Clear"));
+    clearButton_->setTooltip (TRANS("Remove the current selection"));
+    clearButton_->addListener (this);
     comboBox->setColour(ComboBox::buttonColourId, Colour(0xffaeaeae));
     comboBox->setText("Fetching...",true);
     comboBox->setTooltip(String());
@@ -121,6 +125,7 @@ BrowseEditor::~BrowseEditor()
 
 
     //[Destructor]. You can add your own custom destruction code here..
+    clearButton_ = nullptr;
     if( treeContent_!=0)
     {
         deleteAndZero (treeContent_);
@@ -146,6 +151,12 @@ void BrowseEditor::resized()
     browseButton->setBounds (328, 8, 47, 16);
     //[UserResized] Add your own custom resize handling here..
     label->setBounds (getX(), 4, 72, 20);
+    if(clearButton_->isVisible())
+    {
+        textEditor->setBounds (96, 8, 172, 16);
+        browseButton->setBounds (276, 8, 47, 16);
+        clearButton_->setBounds (328, 8, 47, 16);
+    }
     //[/UserResized]
 }
 
@@ -208,6 +219,16 @@ void BrowseEditor::buttonClicked (Button* buttonThatWasClicked)
     }
 
     //[UserbuttonClicked_Post]
+    if (buttonThatWasClicked == clearButton_)
+    {
+        if(treeContent_!=0)
+        {
+            // so the same item can be picked again after clearing
+            treeContent_->clearSelection();
+        }
+        setChangingValue();
+        atom_->activate(String(),String());
+    }
     //[/UserbuttonClicked_Post]
 }
 
@@ -289,6 +310,11 @@ void BrowseEditor::enumerate_updated(String path,int nf,int nc)
             comboBox->setVisible(false);
             textEditor->setVisible(true);
             browseButton->setVisible(true);
+            if(atom_->has_protocol("clearable"))
+            {
+                clearButton_->setVisible(true);
+                resized();
+            }
             textEditor->setText(String(),false);
             textEditor->setTooltip (String());
 

@@ -70,6 +70,7 @@ public:
     void finfo_updated(String path,const std::set<std::string> & finfo);
     void cinfo_updated(String path,const std::set<std::string> & cinfo);
     virtual void parentSizeChanged();
+    void clearSelection();
 
     //[/UserMethods]
 

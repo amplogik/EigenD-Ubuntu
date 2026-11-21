@@ -97,6 +97,9 @@ private:
     std::map<String,String> flatmap_;
 //    TreeView* treeView_;
     TreeDisplayComponent* treeContent_;
+    // only shown in tree mode for atoms with the 'clearable' protocol;
+    // activates the root with an empty cookie, meaning "nothing selected"
+    ScopedPointer<TextButton> clearButton_;
     //[/UserVariables]
 
     //==============================================================================
