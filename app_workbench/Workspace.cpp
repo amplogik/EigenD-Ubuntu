@@ -822,6 +822,7 @@ Workspace::Workspace(epython::PythonBackend *python_backend)
 
     progressWindow_=0;
     progress_=0;
+    oldProgress_=0;
     progressBar_=0;
     progressBarDisplayed_=false;
 
@@ -881,6 +882,12 @@ void Workspace::stateChanged(const char * setup)
    {
         pic::logmsg()<<"agents not changed - call stop_progress ";
         backend_->stop_progress();
+   }
+   else
+   {
+        // The agents may all have arrived before this state did (fast
+        // loads); then no further agent updates come to close the window.
+        backend_->check_progress();
    }
 }
 

@@ -75,6 +75,7 @@ class c2p[workbench::c2p_t]
     virtual void current(const stdstr&)=0
     virtual bool is_slave_of(const stdstr&, const stdstr&)=0
     virtual void stop_progress()=0
+    virtual void check_progress()=0
 
     virtual stdstr get_tooltip(const stdstr&)=0
     virtual stdstr get_helptext(const stdstr&)=0

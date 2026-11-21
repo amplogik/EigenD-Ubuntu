@@ -334,6 +334,10 @@ class Backend(workbench_native.c2p):
     def stop_progress(self):
         self.__database.stop_progress()
 
+    def check_progress(self):
+        # closes the progress window if every indexed agent has already arrived
+        self.__database.check_progress()
+
     def set_state(self,state):
         self.__agent.set_state(state)
 

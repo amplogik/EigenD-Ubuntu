@@ -124,6 +124,7 @@ namespace workbench
         virtual void current(const std::string&)=0;
         virtual bool is_slave_of(const std::string&, const std::string&)=0;
         virtual void stop_progress()=0;
+        virtual void check_progress()=0;
         virtual std::string get_tooltip(const std::string&)=0;
         virtual std::string get_tooltip_by_id(const std::string&)=0;
         virtual std::string get_helptext(const std::string&)=0;
